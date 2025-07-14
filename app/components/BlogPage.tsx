@@ -1,14 +1,15 @@
-"use client";
+"use client"
 
 import React, { useState } from 'react';
 import { Button } from './ui/button';
-import { Card, CardContent } from './ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Dialog, DialogContent } from './ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Separator } from './ui/separator';
+import { ScrollArea } from './ui/scroll-area';
 import { 
   Search, 
   Heart, 
@@ -19,7 +20,13 @@ import {
   BookOpen,
   TrendingUp,
   Star,
-  Share2
+  Share2,
+  Bookmark,
+  MessageSquare,
+  ThumbsUp,
+  X,
+  ExternalLink,
+  Copy
 } from 'lucide-react';
 import { mockBlogArticles, blogCategories, BlogArticle } from '../data/forumBlogData';
 import { ImageWithFallback } from './figma/ImageWithFallback';
@@ -29,6 +36,8 @@ export function BlogPage() {
   const [selectedCategory, setSelectedCategory] = useState('Tất cả');
   const [sortBy, setSortBy] = useState('recent');
   const [selectedArticle, setSelectedArticle] = useState<BlogArticle | null>(null);
+  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [isLiked, setIsLiked] = useState(false);
 
   const filteredArticles = mockBlogArticles.filter(article => {
     const matchesSearch = article.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -64,6 +73,27 @@ export function BlogPage() {
     return `${minutes} phút đọc`;
   };
 
+  const handleShare = () => {
+    if (navigator.share && selectedArticle) {
+      navigator.share({
+        title: selectedArticle.title,
+        text: selectedArticle.excerpt,
+        url: window.location.href,
+      });
+    } else {
+      // Fallback to copy to clipboard
+      navigator.clipboard.writeText(window.location.href);
+    }
+  };
+
+  const toggleBookmark = () => {
+    setIsBookmarked(!isBookmarked);
+  };
+
+  const toggleLike = () => {
+    setIsLiked(!isLiked);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50/30 to-white py-8">
       <div className="max-w-7xl mx-auto px-4">
@@ -93,13 +123,14 @@ export function BlogPage() {
                     <ImageWithFallback
                       src={article.image}
                       alt={article.title}
-                      className="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-300"
+                      className="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-500"
                     />
                     <div className="absolute top-4 left-4">
-                      <Badge className="bg-blue-600 text-white">
+                      <Badge className="bg-blue-600 text-white shadow-lg">
                         {article.category}
                       </Badge>
                     </div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                   </div>
                   <CardContent className="p-6">
                     <div className="space-y-3">
@@ -304,136 +335,247 @@ export function BlogPage() {
         </div>
       </div>
 
-      {/* Article Detail Dialog */}
+      {/* Enhanced Article Detail Dialog */}
       <Dialog open={!!selectedArticle} onOpenChange={() => setSelectedArticle(null)}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden p-0">
           {selectedArticle && (
-            <div className="space-y-6">
-              {/* Article Header */}
-              <div className="space-y-4">
-                <div className="relative overflow-hidden rounded-lg">
-                  <ImageWithFallback
-                    src={selectedArticle.image}
-                    alt={selectedArticle.title}
-                    className="w-full h-64 object-cover"
-                  />
-                  <div className="absolute top-4 left-4">
-                    <Badge className="bg-blue-600 text-white">
-                      {selectedArticle.category}
-                    </Badge>
-                  </div>
+            <div className="flex flex-col h-full">
+              {/* Header */}
+              <div className="relative overflow-hidden">
+                <ImageWithFallback
+                  src={selectedArticle.image}
+                  alt={selectedArticle.title}
+                  className="w-full h-80 object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+                <div className="absolute top-4 left-4">
+                  <Badge className="bg-blue-600 text-white shadow-lg">
+                    {selectedArticle.category}
+                  </Badge>
                 </div>
-                
-                <div className="space-y-2">
-                  <h1 className="text-2xl font-bold text-gray-900">
+                <div className="absolute top-4 right-4 flex items-center space-x-2">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={toggleBookmark}
+                    className={`backdrop-blur-sm ${
+                      isBookmarked 
+                        ? 'bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30' 
+                        : 'bg-white/20 text-white hover:bg-white/30'
+                    }`}
+                  >
+                    <Bookmark className={`h-4 w-4 ${isBookmarked ? 'fill-current' : ''}`} />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={handleShare}
+                    className="bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm"
+                  >
+                    <Share2 className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setSelectedArticle(null)}
+                    className="bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="absolute bottom-6 left-6 right-6">
+                  <h1 className="text-3xl font-bold text-white mb-3 line-clamp-2">
                     {selectedArticle.title}
                   </h1>
-                  <p className="text-lg text-gray-600">
+                  <p className="text-lg text-gray-200 line-clamp-2">
                     {selectedArticle.excerpt}
                   </p>
                 </div>
+              </div>
 
-                <div className="flex items-center justify-between py-4 border-y border-blue-100">
-                  <div className="flex items-center space-x-4">
-                    <Avatar className="w-12 h-12 ring-2 ring-blue-100">
-                      <AvatarImage src={selectedArticle.authorAvatar} alt={selectedArticle.author} />
-                      <AvatarFallback>{selectedArticle.author.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <div className="font-semibold text-gray-900">{selectedArticle.author}</div>
-                      <div className="text-sm text-gray-600">{selectedArticle.authorTitle}</div>
+              <ScrollArea className="flex-1">
+                <div className="p-8 space-y-8">
+                  {/* Author & Meta Info */}
+                  <div className="flex items-center justify-between py-4 border-y border-blue-100">
+                    <div className="flex items-center space-x-4">
+                      <Avatar className="w-14 h-14 ring-4 ring-blue-100">
+                        <AvatarImage src={selectedArticle.authorAvatar} alt={selectedArticle.author} />
+                        <AvatarFallback className="text-lg">{selectedArticle.author.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="font-semibold text-gray-900 text-lg">{selectedArticle.author}</div>
+                        <div className="text-sm text-blue-600 font-medium">{selectedArticle.authorTitle}</div>
+                        <div className="text-sm text-gray-500 mt-1">
+                          Chuyên gia tâm lý với 10+ năm kinh nghiệm
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-8 text-sm text-gray-600">
+                      <div className="text-center">
+                        <div className="flex items-center justify-center mb-1">
+                          <Calendar className="h-4 w-4 mr-1" />
+                        </div>
+                        <div className="font-medium">{formatDate(selectedArticle.publishedAt)}</div>
+                        <div className="text-xs">Ngày đăng</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="flex items-center justify-center mb-1">
+                          <Clock className="h-4 w-4 mr-1" />
+                        </div>
+                        <div className="font-medium">{formatReadTime(selectedArticle.readTime)}</div>
+                        <div className="text-xs">Thời gian đọc</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="flex items-center justify-center mb-1">
+                          <Eye className="h-4 w-4 mr-1" />
+                        </div>
+                        <div className="font-medium">{selectedArticle.views.toLocaleString()}</div>
+                        <div className="text-xs">Lượt xem</div>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-6 text-sm text-gray-600">
-                    <span className="flex items-center">
-                      <Calendar className="h-4 w-4 mr-1" />
-                      {formatDate(selectedArticle.publishedAt)}
-                    </span>
-                    <span className="flex items-center">
-                      <Clock className="h-4 w-4 mr-1" />
-                      {formatReadTime(selectedArticle.readTime)}
-                    </span>
-                    <span className="flex items-center">
-                      <Eye className="h-4 w-4 mr-1" />
-                      {selectedArticle.views} lượt xem
-                    </span>
+
+                  {/* Article Content */}
+                  <div className="prose max-w-none prose-lg">
+                    <div className="text-gray-700 whitespace-pre-wrap leading-relaxed text-lg">
+                      {selectedArticle.content}
+                    </div>
+                  </div>
+
+                  {/* Tags */}
+                  <div className="flex flex-wrap gap-2 pt-6 border-t border-blue-100">
+                    <span className="text-sm font-medium text-gray-700 mr-2">Tags:</span>
+                    {selectedArticle.tags.map((tag, index) => (
+                      <Badge 
+                        key={index} 
+                        variant="outline" 
+                        className="border-blue-200 text-blue-600 hover:bg-blue-50 cursor-pointer transition-colors"
+                      >
+                        #{tag}
+                      </Badge>
+                    ))}
+                  </div>
+
+                  {/* Article Actions */}
+                  <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6 border border-blue-100">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-6">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={toggleLike}
+                          className={`${
+                            isLiked 
+                              ? 'text-red-600 hover:text-red-700' 
+                              : 'text-gray-600 hover:text-red-600'
+                          } transition-colors`}
+                        >
+                          <Heart className={`h-5 w-5 mr-2 ${isLiked ? 'fill-current' : ''}`} />
+                          <span className="font-medium">
+                            {selectedArticle.likes + (isLiked ? 1 : 0)} Yêu thích
+                          </span>
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={handleShare}
+                          className="text-gray-600 hover:text-blue-600 transition-colors"
+                        >
+                          <Share2 className="h-5 w-5 mr-2" />
+                          <span className="font-medium">Chia sẻ</span>
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="text-gray-600 hover:text-green-600 transition-colors"
+                        >
+                          <MessageSquare className="h-5 w-5 mr-2" />
+                          <span className="font-medium">Bình luận</span>
+                        </Button>
+                      </div>
+                      <div className="text-sm text-gray-600 flex items-center">
+                        <ThumbsUp className="h-4 w-4 mr-1" />
+                        <span>98% độc giả thấy hữu ích</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Related Articles */}
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
+                      <BookOpen className="h-5 w-5 mr-2 text-blue-600" />
+                      Bài viết liên quan
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {mockBlogArticles
+                        .filter(article => 
+                          article.id !== selectedArticle.id && 
+                          (article.category === selectedArticle.category || 
+                           article.tags.some(tag => selectedArticle.tags.includes(tag)))
+                        )
+                        .slice(0, 2)
+                        .map((article) => (
+                          <Card 
+                            key={article.id}
+                            className="cursor-pointer hover:shadow-lg transition-all duration-300 border-blue-100 hover:border-blue-200 group"
+                            onClick={() => setSelectedArticle(article)}
+                          >
+                            <CardContent className="p-4">
+                              <div className="flex space-x-4">
+                                <ImageWithFallback
+                                  src={article.image}
+                                  alt={article.title}
+                                  className="w-24 h-24 object-cover rounded-lg flex-shrink-0 group-hover:scale-105 transition-transform duration-300"
+                                />
+                                <div className="flex-1 space-y-2">
+                                  <h4 className="font-medium text-sm line-clamp-2 group-hover:text-blue-600 transition-colors">
+                                    {article.title}
+                                  </h4>
+                                  <p className="text-xs text-gray-600 line-clamp-2">
+                                    {article.excerpt}
+                                  </p>
+                                  <div className="flex items-center justify-between text-xs text-gray-500">
+                                    <div className="flex items-center space-x-2">
+                                      <span>{article.author}</span>
+                                      <span>•</span>
+                                      <span>{formatReadTime(article.readTime)}</span>
+                                    </div>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm" 
+                                      className="p-0 h-auto text-blue-600 hover:text-blue-700"
+                                    >
+                                      <ExternalLink className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                    </div>
+                  </div>
+
+                  {/* Newsletter Signup */}
+                  <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl p-8 text-white">
+                    <div className="max-w-2xl mx-auto text-center">
+                      <h3 className="text-xl font-bold mb-2">Đăng ký nhận bài viết mới</h3>
+                      <p className="text-blue-100 mb-6">
+                        Nhận những bài viết tâm lý hữu ích và mẹo chăm sóc sức khỏe tinh thần mỗi tuần
+                      </p>
+                      <div className="flex space-x-3 max-w-md mx-auto">
+                        <Input 
+                          placeholder="Nhập email của bạn"
+                          className="bg-white/10 border-white/20 text-white placeholder:text-blue-200"
+                        />
+                        <Button className="bg-white text-blue-600 hover:bg-gray-100">
+                          Đăng ký
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-
-              {/* Article Content */}
-              <div className="prose max-w-none">
-                <div className="text-gray-700 whitespace-pre-wrap leading-relaxed">
-                  {selectedArticle.content}
-                </div>
-              </div>
-
-              {/* Tags */}
-              <div className="flex flex-wrap gap-2 pt-4 border-t border-blue-100">
-                {selectedArticle.tags.map((tag, index) => (
-                  <Badge key={index} variant="outline" className="border-blue-200 text-blue-600">
-                    #{tag}
-                  </Badge>
-                ))}
-              </div>
-
-              {/* Article Actions */}
-              <div className="flex items-center justify-between bg-blue-50/50 rounded-lg p-4">
-                <div className="flex items-center space-x-4">
-                  <Button variant="ghost" size="sm" className="text-gray-600 hover:text-red-600">
-                    <Heart className="h-4 w-4 mr-2" />
-                    {selectedArticle.likes} Yêu thích
-                  </Button>
-                  <Button variant="ghost" size="sm" className="text-gray-600 hover:text-blue-600">
-                    <Share2 className="h-4 w-4 mr-2" />
-                    Chia sẻ
-                  </Button>
-                </div>
-                <div className="text-sm text-gray-600">
-                  {selectedArticle.views} lượt đọc
-                </div>
-              </div>
-
-              {/* Related Articles */}
-              <div className="border-t border-blue-100 pt-6">
-                <h3 className="font-semibold text-gray-900 mb-4">Bài viết liên quan</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {mockBlogArticles
-                    .filter(article => 
-                      article.id !== selectedArticle.id && 
-                      (article.category === selectedArticle.category || 
-                       article.tags.some(tag => selectedArticle.tags.includes(tag)))
-                    )
-                    .slice(0, 2)
-                    .map((article) => (
-                      <Card 
-                        key={article.id}
-                        className="cursor-pointer hover:shadow-md transition-shadow border-blue-100"
-                        onClick={() => setSelectedArticle(article)}
-                      >
-                        <CardContent className="p-4">
-                          <div className="flex space-x-3">
-                            <ImageWithFallback
-                              src={article.image}
-                              alt={article.title}
-                              className="w-20 h-20 object-cover rounded-lg flex-shrink-0"
-                            />
-                            <div className="flex-1 space-y-2">
-                              <h4 className="font-medium text-sm line-clamp-2 hover:text-blue-600">
-                                {article.title}
-                              </h4>
-                              <div className="flex items-center space-x-2 text-xs text-gray-600">
-                                <span>{article.author}</span>
-                                <span>•</span>
-                                <span>{formatReadTime(article.readTime)}</span>
-                              </div>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                </div>
-              </div>
+              </ScrollArea>
             </div>
           )}
         </DialogContent>

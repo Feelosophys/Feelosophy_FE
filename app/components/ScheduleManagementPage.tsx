@@ -1,10 +1,11 @@
-"use client";
+"use client"
 
 import React, { useState } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Calendar } from './ui/calendar';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Switch } from './ui/switch';
 import { Label } from './ui/label';
@@ -15,7 +16,9 @@ import {
   Calendar as CalendarIcon, 
   Clock, 
   Plus, 
+  Edit, 
   Trash2, 
+  Save, 
   RefreshCw,
   CheckCircle,
   XCircle,
@@ -23,6 +26,7 @@ import {
   Users,
   TrendingUp,
   Eye,
+  Copy
 } from 'lucide-react';
 
 interface TimeSlot {
@@ -209,7 +213,7 @@ export function ScheduleManagementPage() {
     for (let i = 0; i < 7; i++) {
       const date = new Date(today);
       date.setDate(today.getDate() + i);
-      const dayName = date.toLocaleDateString('en', { weekday: 'short' }).toLowerCase();
+      const dayName = date.toLocaleDateString('en', { weekday: 'lowercase' });
       
       if (scheduleSettings.workingDays.includes(dayName)) {
         const startHour = parseInt(scheduleSettings.workingHours.start.split(':')[0]);

@@ -1,4 +1,4 @@
-"use client";
+"use client"
 
 import React, { useState } from 'react';
 import { Button } from './ui/button';
@@ -17,6 +17,7 @@ import {
   Award, 
   MapPin, 
   CheckCircle, 
+  BookOpen,
   Heart,
   Share2,
   MessageSquare,
@@ -28,18 +29,14 @@ import {
   Languages,
   Shield
 } from 'lucide-react';
-import { mockExperts } from '../data/mockData';
+import { mockExperts, type Expert } from '../data/mockData';
+import { ImageWithFallback } from './figma/ImageWithFallback';
 import { CalendarBooking } from './CalendarBooking';
 
 interface ExpertDetailPageProps {
   expertId: string;
   onBack: () => void;
-  currentUser?: {
-    id: string;
-    name: string;
-    email: string;
-    avatarUrl?: string;
-  };
+  currentUser?: any;
   onShowAuth?: () => void;
 }
 
@@ -605,7 +602,7 @@ export function ExpertDetailPage({ expertId, onBack, currentUser, onShowAuth }: 
         </div>
       </div>
 
-      {/* Booking Dialog */}
+      {/* Booking Dialog - Standard dialog size */}
       <Dialog open={showBookingDialog} onOpenChange={setShowBookingDialog}>
         <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogTitle className="sr-only">

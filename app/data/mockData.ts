@@ -1,17 +1,4 @@
-import { ReactNode } from "react";
-
 export interface Course {
-  // Removed the index signature to avoid type conflicts
-  reviews: { reviewer: string; comment: string; rating: number, date: Date }[];
-  ageRange: ReactNode;
-  courseDuration: ReactNode;
-  totalHours: ReactNode;
-  lessons: ReactNode;
-  courseType: string;
-  features: string[]; // Assuming features is an array of strings, adjust as needed
-  corporateFeatures: string[],
-  minParticipants: ReactNode;
-  maxParticipants: ReactNode;
   id: string;
   title: string;
   description: string;
@@ -36,6 +23,25 @@ export interface Course {
       type: 'video' | 'reading' | 'quiz' | 'assignment';
     }[];
   }[];
+  // Additional properties for CourseDetailPage
+  reviews: {
+    id: string;
+    studentName: string;
+    avatar: string;
+    rating: number;
+    comment: string;
+    date: string;
+    verified: boolean;
+  }[];
+  ageRange: string;
+  courseDuration: string;
+  courseType: 'individual' | 'corporate';
+  features: string[];
+  corporateFeatures?: string[];
+  minParticipants?: number;
+  maxParticipants?: number;
+  totalHours: number;
+  lessons: number;
 }
 
 export interface TimeSlot {
@@ -81,11 +87,9 @@ export interface User {
     reminders: boolean;
   };
   createdAt: string;
-  joinDate?: string; // Optional field for join date
 }
 
 export interface Transaction {
-  title: string;
   id: string;
   type: 'course' | 'consultation' | 'refund';
   courseId?: string;
@@ -138,8 +142,7 @@ export const mockTransactions: Transaction[] = [
     status: 'completed',
     date: '2024-12-10',
     paymentMethod: 'credit_card',
-    description: 'Thanh toán khóa học Quản lý Stress và Anxiety cơ bản',
-    title: 'Thanh toán khóa học Quản lý Stress và Anxiety cơ bản',
+    description: 'Thanh toán khóa học Quản lý Stress và Anxiety cơ bản'
   },
   {
     id: 'txn-002',
@@ -150,8 +153,7 @@ export const mockTransactions: Transaction[] = [
     status: 'completed',
     date: '2024-12-08',
     paymentMethod: 'bank_transfer',
-    description: 'Tư vấn tâm lý với Dr. Nguyễn Minh Anh - 1 giờ',
-    title: 'Tư vấn tâm lý với Dr. Nguyễn Minh Anh',
+    description: 'Tư vấn tâm lý với Dr. Nguyễn Minh Anh - 1 giờ'
   },
   {
     id: 'txn-003',
@@ -162,8 +164,7 @@ export const mockTransactions: Transaction[] = [
     status: 'completed',
     date: '2024-11-28',
     paymentMethod: 'credit_card',
-    description: 'Thanh toán khóa học Xây dựng Tự tin và Lòng tự trọng',
-    title: 'Thanh toán khóa học Xây dựng Tự tin và Lòng tự trọng',
+    description: 'Thanh toán khóa học Xây dựng Tự tin và Lòng tự trọng'
   },
   {
     id: 'txn-004',
@@ -174,8 +175,7 @@ export const mockTransactions: Transaction[] = [
     status: 'pending',
     date: '2024-12-20',
     paymentMethod: 'wallet',
-    description: 'Tư vấn tâm lý gia đình - Đang chờ xác nhận',
-    title: 'Tư vấn tâm lý gia đình với ThS. Trần Văn Bình',
+    description: 'Tư vấn tâm lý gia đình - Đang chờ xác nhận'
   },
   {
     id: 'txn-005',
@@ -186,8 +186,7 @@ export const mockTransactions: Transaction[] = [
     status: 'completed',
     date: '2024-11-15',
     paymentMethod: 'bank_transfer',
-    description: 'Hoàn tiền khóa học doanh nghiệp - Hủy đăng ký',
-    title: 'Hoàn tiền khóa học Chương trình Sức khỏe Tinh thần Doanh nghiệp',
+    description: 'Hoàn tiền khóa học doanh nghiệp - Hủy đăng ký'
   },
   {
     id: 'txn-006',
@@ -198,8 +197,7 @@ export const mockTransactions: Transaction[] = [
     status: 'failed',
     date: '2024-12-01',
     paymentMethod: 'credit_card',
-    description: 'Thanh toán thất bại - Thẻ tín dụng không hợp lệ',
-    title: 'Thanh toán tư vấn với Dr. Lê Thị Cẩm - Thất bại',
+    description: 'Thanh toán thất bại - Thẻ tín dụng không hợp lệ'
   }
 ];
 
@@ -251,16 +249,37 @@ export const mockCourses: Course[] = [
         ]
       }
     ],
-    reviews: [],
-    ageRange: '18-60',
-    courseDuration: '6 weeks',
-    totalHours: '12 hours',
-    lessons: '10 lessons',
-    courseType: 'Online',
-    features: ['Certificate of Completion', 'Access to Resources'],
-    corporateFeatures: [],
-    minParticipants: '1',
-    maxParticipants: '50'
+    reviews: [
+      {
+        id: 'r1',
+        studentName: 'Nguyễn Thị A',
+        avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b602?w=100&h=100&fit=crop',
+        rating: 5,
+        comment: 'Khóa học rất hữu ích, giúp tôi hiểu rõ hơn về stress và cách quản lý nó hiệu quả.',
+        date: '2024-12-15',
+        verified: true
+      },
+      {
+        id: 'r2',
+        studentName: 'Trần Văn B',
+        avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop',
+        rating: 4,
+        comment: 'Những kỹ thuật thở trong khóa học thực sự hiệu quả. Tôi cảm thấy thoải mái hơn nhiều.',
+        date: '2024-12-10',
+        verified: true
+      }
+    ],
+    ageRange: '18-65',
+    courseDuration: '6 tuần',
+    courseType: 'individual',
+    features: [
+      'Học kỹ thuật thở để giảm stress',
+      'Hiểu rõ về cơ chế hoạt động của stress',
+      'Thực hành mindfulness hàng ngày',
+      'Xây dựng kế hoạch quản lý stress cá nhân'
+    ],
+    totalHours: 12,
+    lessons: 8
   },
   {
     id: '2',
@@ -297,16 +316,28 @@ export const mockCourses: Course[] = [
         ]
       }
     ],
-    reviews: [],
-    ageRange: '18-60',
-    courseDuration: '8 weeks',
-    totalHours: '16 hours',
-    lessons: '12 lessons',
-    courseType: 'Online',
-    features: ['Certificate of Completion', 'Access to Resources'],
-    corporateFeatures: [],
-    minParticipants: '1',
-    maxParticipants: '50'
+    reviews: [
+      {
+        id: 'r3',
+        studentName: 'Lê Thị C',
+        avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop',
+        rating: 5,
+        comment: 'Khóa học đã thay đổi cuộc sống tôi. Tôi cảm thấy tự tin hơn rất nhiều trong giao tiếp.',
+        date: '2024-12-12',
+        verified: true
+      }
+    ],
+    ageRange: '18-45',
+    courseDuration: '8 tuần',
+    courseType: 'individual',
+    features: [
+      'Phát triển tự tin vượt trội',
+      'Xây dựng lòng tự trọng bền vững',
+      'Cải thiện kỹ năng giao tiếp',
+      'Đặt và đạt được mục tiêu'
+    ],
+    totalHours: 16,
+    lessons: 12
   },
   {
     id: '3',
@@ -343,16 +374,28 @@ export const mockCourses: Course[] = [
         ]
       }
     ],
-    reviews: [],
-    ageRange: '18-60',
-    courseDuration: '10 weeks',
-    totalHours: '20 hours',
-    lessons: '15 lessons',
-    courseType: 'Online',
-    features: ['Certificate of Completion', 'Access to Resources'],
-    corporateFeatures: [],
-    minParticipants: '1',
-    maxParticipants: '50'
+    reviews: [
+      {
+        id: 'r4',
+        studentName: 'Phạm Văn D',
+        avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop',
+        rating: 5,
+        comment: 'Mindfulness đã giúp tôi tìm lại sự bình an trong tâm hồn. Rất đáng để đầu tư.',
+        date: '2024-12-08',
+        verified: true
+      }
+    ],
+    ageRange: '16-70',
+    courseDuration: '10 tuần',
+    courseType: 'individual',
+    features: [
+      'Học thiền định từ cơ bản đến nâng cao',
+      'Thực hành mindfulness trong cuộc sống',
+      'Giảm stress và lo âu hiệu quả',
+      'Cải thiện chất lượng giấc ngủ'
+    ],
+    totalHours: 20,
+    lessons: 15
   },
 
   // Corporate Courses (8M-18M VND)
@@ -392,17 +435,168 @@ export const mockCourses: Course[] = [
         ]
       }
     ],
-    reviews: [],
-    ageRange: '18-60',
-    courseDuration: '3 months',
-    totalHours: '36 hours',
-    lessons: '12 lessons',
-    courseType: 'Online',
-    features: ['Certificate of Completion', 'Access to Resources'],
-    corporateFeatures: ['Custom Workshops', 'Employee Assessments'],
-    minParticipants: '10',
-    maxParticipants: '100'
+    reviews: [
+      {
+        id: 'r5',
+        studentName: 'HR Manager - Công ty ABC',
+        avatar: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=100&h=100&fit=crop',
+        rating: 5,
+        comment: 'Chương trình đã mang lại hiệu quả rõ rệt cho tổ chức chúng tôi. Nhân viên hài lòng hơn và năng suất tăng.',
+        date: '2024-11-30',
+        verified: true
+      }
+    ],
+    ageRange: '25-55',
+    courseDuration: '3 tháng',
+    courseType: 'corporate',
+    features: [
+      'Đánh giá tổng thể sức khỏe tinh thần tổ chức',
+      'Xây dựng chính sách wellness toàn diện',
+      'Đào tạo leadership về mental health',
+      'Hỗ trợ triển khai dài hạn'
+    ],
+    corporateFeatures: [
+      'Tư vấn onsite với đội ngũ chuyên gia',
+      'Customized training theo văn hóa công ty',
+      'Báo cáo định kỳ và đo lường hiệu quả',
+      'Hotline hỗ trợ 24/7 cho nhân viên',
+      'Certificate cho người hoàn thành'
+    ],
+    minParticipants: 50,
+    maxParticipants: 500,
+    totalHours: 48,
+    lessons: 24
   },
+  {
+    id: '5',
+    title: 'Quản lý Stress và Burnout trong Tổ chức',
+    description: 'Hướng dẫn doanh nghiệp nhận diện, phòng ngừa và xử lý tình trạng stress và burnout của nhân viên.',
+    instructor: 'Dr. Phạm Đức Nam',
+    instructorImage: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150&h=150&fit=crop',
+    duration: '6 tuần',
+    level: 'Intermediate',
+    price: 8500000,
+    rating: 4.8,
+    students: 67,
+    image: 'https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=800&h=400&fit=crop',
+    category: 'corporate',
+    topics: ['Stress Management', 'Burnout Prevention', 'Employee Wellness', 'Productivity'],
+    objectives: [
+      'Nhận diện dấu hiệu stress và burnout',
+      'Phát triển chiến lược phòng ngừa',
+      'Hỗ trợ nhân viên bị ảnh hưởng',
+      'Xây dựng văn hóa chăm sóc sức khỏe'
+    ],
+    requirements: [
+      'Đội ngũ HR và quản lý tham gia',
+      'Số liệu về hiệu suất nhân viên',
+      'Sẵn sàng thay đổi quy trình'
+    ],
+    curriculum: [
+      {
+        module: 'Tuần 1-2: Hiểu về Stress trong Tổ chức',
+        lessons: [
+          { title: 'Nguyên nhân stress tại nơi làm việc', duration: '45 phút', type: 'video' },
+          { title: 'Đánh giá môi trường làm việc', duration: '60 phút', type: 'assignment' }
+        ]
+      }
+    ],
+    reviews: [
+      {
+        id: 'r6',
+        studentName: 'CEO - Startup XYZ',
+        avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop',
+        rating: 5,
+        comment: 'Chương trình giúp chúng tôi xây dựng môi trường làm việc khỏe mạnh hơn. Tỷ lệ nghỉ việc giảm đáng kể.',
+        date: '2024-12-01',
+        verified: true
+      }
+    ],
+    ageRange: '22-60',
+    courseDuration: '6 tuần',
+    courseType: 'corporate',
+    features: [
+      'Nhận diện sớm dấu hiệu burnout',
+      'Xây dựng chính sách phòng ngừa',
+      'Hỗ trợ nhân viên bị ảnh hưởng',
+      'Tạo văn hóa work-life balance'
+    ],
+    corporateFeatures: [
+      'Workshop thực hành cho team leaders',
+      'Toolkit đánh giá stress toàn tổ chức',
+      'Session riêng cho nhân viên có nguy cơ cao',
+      'Monthly check-in và coaching'
+    ],
+    minParticipants: 20,
+    maxParticipants: 200,
+    totalHours: 30,
+    lessons: 18
+  },
+  {
+    id: '6',
+    title: 'Leadership và Sức khỏe Tinh thần',
+    description: 'Đào tạo lãnh đạo về vai trò quan trọng trong việc hỗ trợ và duy trì sức khỏe tinh thần của đội nhóm.',
+    instructor: 'ThS. Hoàng Thị Mai',
+    instructorImage: 'https://images.unsplash.com/photo-1494790108755-2616b612b602?w=150&h=150&fit=crop',
+    duration: '4 tuần',
+    level: 'Advanced',
+    price: 18000000,
+    rating: 5.0,
+    students: 23,
+    image: 'https://images.unsplash.com/photo-1556761175-b413da4baf72?w=800&h=400&fit=crop',
+    category: 'corporate',
+    topics: ['Leadership', 'Mental Health', 'Team Management', 'Communication'],
+    objectives: [
+      'Phát triển kỹ năng lãnh đạo có tâm',
+      'Nhận diện và hỗ trợ nhân viên gặp khó khăn',
+      'Tạo môi trường làm việc hỗ trợ',
+      'Xây dựng chiến lược dài hạn'
+    ],
+    requirements: [
+      'Vị trí quản lý cấp trung trở lên',
+      'Kinh nghiệm lãnh đạo ít nhất 2 năm',
+      'Cam kết áp dụng kiến thức'
+    ],
+    curriculum: [
+      {
+        module: 'Tuần 1: Lãnh đạo có Tâm',
+        lessons: [
+          { title: 'Emotional Intelligence cho lãnh đạo', duration: '90 phút', type: 'video' },
+          { title: 'Thực hành kỹ năng lắng nghe', duration: '60 phút', type: 'assignment' }
+        ]
+      }
+    ],
+    reviews: [
+      {
+        id: 'r7',
+        studentName: 'Director - Tập đoàn DEF',
+        avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop',
+        rating: 5,
+        comment: 'Khóa học đã thay đổi cách tôi lãnh đạo. Team work hiệu quả hơn và mọi người hạnh phúc hơn.',
+        date: '2024-11-25',
+        verified: true
+      }
+    ],
+    ageRange: '30-55',
+    courseDuration: '4 tuần',
+    courseType: 'corporate',
+    features: [
+      'Phát triển emotional intelligence',
+      'Kỹ năng coaching và mentoring',
+      'Xây dựng team resilience',
+      'Leadership trong thời đại số'
+    ],
+    corporateFeatures: [
+      'Executive coaching 1-on-1',
+      'Leadership assessment và feedback 360',
+      'Simulation exercises thực tế',
+      'Follow-up coaching 6 tháng'
+    ],
+    minParticipants: 10,
+    maxParticipants: 50,
+    totalHours: 24,
+    lessons: 16
+  }
 ];
 
 // Mock Experts Data - Updated to include Dr. Sarah Wilson
@@ -596,7 +790,6 @@ export function getExpertById(id: string): Expert | undefined {
  */
 export function isInWishlist(courseId: string): boolean {
   return mockWishlistInternal.includes(courseId);
-mockWishlistInternal.includes(courseId);
 }
 
 /**
@@ -767,13 +960,7 @@ export function getUpcomingConsultations(): Transaction[] {
 export function addTransaction(transaction: Omit<Transaction, 'id'>): Transaction {
   const newTransaction: Transaction = {
     ...transaction,
-    id: `txn-${Date.now()}`,
-    type: "course",
-    amount: 0,
-    status: "completed",
-    date: "",
-    paymentMethod: "credit_card",
-    description: ""
+    id: `txn-${Date.now()}`
   };
   mockTransactions.unshift(newTransaction);
   return newTransaction;

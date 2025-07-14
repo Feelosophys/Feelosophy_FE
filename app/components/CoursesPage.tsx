@@ -1,4 +1,4 @@
-"use client";
+"use client"
 
 import React, { useState } from 'react';
 import { Button } from './ui/button';
@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
 import { Star, Users, Search, Clock, BookOpen, Heart, ShoppingCart, Calendar, Building2, User, Target, Award } from 'lucide-react';
-import { toggleWishlist, isInWishlist, getCoursesByType, type Course } from '../data/mockData';
+import { mockCourses, toggleWishlist, isInWishlist, getCoursesByType, type Course } from '../data/mockData';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
 interface CoursesPageProps {
@@ -106,7 +106,7 @@ export function CoursesPage({ onCourseSelect }: CoursesPageProps) {
     const totalCourses = currentCourses.length;
     const totalStudents = currentCourses.reduce((sum, course) => sum + course.students, 0);
     const avgRating = currentCourses.reduce((sum, course) => sum + course.rating, 0) / totalCourses;
-    const totalHours = currentCourses.reduce((sum, course) => sum + (typeof course.totalHours === 'number' ? course.totalHours : 0), 0);
+    const totalHours = currentCourses.reduce((sum, course) => sum + course.totalHours, 0);
     
     return { totalCourses, totalStudents, avgRating: avgRating.toFixed(1), totalHours };
   };
@@ -296,7 +296,7 @@ export function CoursesPage({ onCourseSelect }: CoursesPageProps) {
               <SelectContent>
                 <SelectItem value="all">Tất cả độ tuổi</SelectItem>
                 {ageRanges.map(ageRange => (
-                  <SelectItem key={String(ageRange)} value={String(ageRange)}>{ageRange} tuổi</SelectItem>
+                  <SelectItem key={ageRange} value={ageRange}>{ageRange} tuổi</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -308,7 +308,7 @@ export function CoursesPage({ onCourseSelect }: CoursesPageProps) {
               <SelectContent>
                 <SelectItem value="all">Tất cả thời lượng</SelectItem>
                 {durations.map(duration => (
-                  <SelectItem key={String(duration)} value={String(duration)}>{duration}</SelectItem>
+                  <SelectItem key={duration} value={duration}>{duration}</SelectItem>
                 ))}
               </SelectContent>
             </Select>

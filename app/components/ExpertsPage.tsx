@@ -1,4 +1,4 @@
-"use client";
+"use client"
 
 import React, { useState } from 'react';
 import { Button } from './ui/button';
@@ -7,7 +7,7 @@ import { Badge } from './ui/badge';
 import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from './ui/dialog';
-import { Star, Users, Search, Clock, Calendar, Award, CheckCircle, Eye } from 'lucide-react';
+import { Star, Users, Search, Clock, Calendar, Award, MapPin, CheckCircle, Eye } from 'lucide-react';
 import { mockExperts, type Expert } from '../data/mockData';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { CalendarBooking } from './CalendarBooking';

@@ -1,10 +1,12 @@
+"use client"
+
 import React, { useState } from 'react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { Separator } from './ui/separator';
-import { Star, Clock, Users, BookOpen, Play, CheckCircle } from 'lucide-react';
+import { Star, Clock, Users, BookOpen, Play, CheckCircle, X } from 'lucide-react';
 import { Course } from '../types';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 

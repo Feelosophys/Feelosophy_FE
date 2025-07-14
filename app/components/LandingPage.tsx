@@ -1,8 +1,10 @@
+"use client"
+
 import React from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
-import { Brain, BookOpen, Shield, Star, Clock } from 'lucide-react';
+import { Brain, BookOpen, Users, Shield, Star, Clock } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
 interface LandingPageProps {
@@ -289,7 +291,7 @@ export function LandingPage({ onNavigate }: LandingPageProps) {
                     ))}
                   </div>
                   <p className="text-gray-600 italic">
-                    &quot;{testimonial.quote}&quot;
+                    "{testimonial.quote}"
                   </p>
                   <div>
                     <div className="font-semibold text-gray-800">{testimonial.name}</div>

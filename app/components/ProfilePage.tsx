@@ -1,4 +1,4 @@
-"use client";
+"use client"
 
 import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
@@ -8,21 +8,15 @@ import { Label } from './ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Badge } from './ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
+import { Separator } from './ui/separator';
 import { Progress } from './ui/progress';
-import { User, History, Lock, CreditCard, BookOpen, Users, Calendar, Edit3, Clock, Heart, Star, ShoppingCart, Trash2, Play, CheckCircle, Award, MapPin, Video } from 'lucide-react';
+import { User, History, Lock, CreditCard, BookOpen, Users, Calendar, Edit3, Clock, Heart, Star, ShoppingCart, Trash2, Play, CheckCircle, Award, TrendingUp, BarChart3, MapPin, Video } from 'lucide-react';
 import { mockUser, mockTransactions, mockCourses, mockWishlist, toggleWishlist } from '../data/mockData';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
 interface ProfilePageProps {
   defaultTab?: string;
   onCourseSelect?: (courseId: string) => void;
-}
-
-interface User {
-  name: string;
-  email: string;
-  avatar: string;
-  joinDate: string; // Added joinDate property
 }
 
 // Mock enrolled courses data
@@ -213,18 +207,15 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
     }
   };
 
-  interface Transaction {
-      id: string;
-      date: string;
-      amount: number;
-      status: string;
-      type: string;
-      title?: string; // Made optional to align with mockData
-  }
+  const getTransactionIcon = (type: string) => {
+    return type === 'course' ? <BookOpen className="h-4 w-4" /> : <Users className="h-4 w-4" />;
+  };
 
-  const getTransactionDetails = (transaction: Transaction) => {
+  const getTransactionDetails = (transaction: any) => {
     if (transaction.type === 'consultation') {
-      const hourMatch = (transaction.title ?? '').match(/(\d+)\s*giờ/);
+      // Try to extract duration from description or title, with fallback
+      const textToSearch = transaction.description || transaction.expertName || '';
+      const hourMatch = textToSearch.match(/(\d+)\s*giờ/);
       const duration = hourMatch ? parseInt(hourMatch[1]) : 1;
       return {
         duration,
@@ -273,6 +264,7 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
   // Learning stats
   const totalCoursesEnrolled = mockEnrolledCourses.length;
   const completedCourses = mockEnrolledCourses.filter(course => course.status === 'completed').length;
+  const inProgressCourses = mockEnrolledCourses.filter(course => course.status === 'in_progress').length;
   const totalHoursStudied = mockEnrolledCourses.reduce((sum, course) => 
     sum + Math.round((course.progress / 100) * course.totalHours), 0
   );
@@ -377,7 +369,7 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
                 <div className="space-y-2">
                   <Label>Ngày tham gia</Label>
                   <Input
-                    value={formatDate(String(userData.joinDate))}
+                    value={formatDate(userData.createdAt)}
                     disabled
                     className="bg-blue-50/50"
                   />
@@ -890,6 +882,8 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
                 <div className="space-y-4">
                   {mockTransactions.map((transaction) => {
                     const details = getTransactionDetails(transaction);
+                    const displayName = transaction.courseName || transaction.expertName || transaction.description;
+                    
                     return (
                       <div key={transaction.id} className="flex items-center justify-between p-4 border border-blue-100 rounded-lg bg-white/50 hover:bg-white/80 transition-colors">
                         <div className="flex items-center space-x-4">
@@ -897,9 +891,7 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
                             {details.icon}
                           </div>
                           <div>
-                            {transaction.title && (
-                              <div className="font-medium">{transaction.title}</div>
-                            )}
+                            <div className="font-medium">{displayName}</div>
                             <div className="text-sm text-gray-600 flex items-center space-x-2">
                               <Calendar className="h-3 w-3" />
                               <span>{formatDate(transaction.date)}</span>

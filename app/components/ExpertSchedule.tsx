@@ -1,3 +1,5 @@
+"use client"
+
 import React, { useState } from 'react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -6,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Separator } from './ui/separator';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Label } from './ui/label';
-import { Star, Clock, CheckCircle} from 'lucide-react';
+import { Star, Clock, Users, Calendar, CheckCircle, X } from 'lucide-react';
 import { Expert, TimeSlot } from '../types';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 

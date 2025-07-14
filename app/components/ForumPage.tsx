@@ -1,8 +1,8 @@
-"use client";
+"use client"
 
 import React, { useState } from 'react';
 import { Button } from './ui/button';
-import { Card, CardContent } from './ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Separator } from './ui/separator';
 import { Textarea } from './ui/textarea';
+import { ScrollArea } from './ui/scroll-area';
 import { 
   Search, 
   MessageSquare, 
@@ -21,9 +22,14 @@ import {
   Plus,
   ArrowUp,
   Filter,
-  TrendingUp
+  TrendingUp,
+  Share2,
+  Bookmark,
+  MoreHorizontal,
+  Reply,
+  X
 } from 'lucide-react';
-import { mockForumPosts, mockForumReplies, forumCategories, ForumPost } from '../data/forumBlogData';
+import { mockForumPosts, mockForumReplies, forumCategories, ForumPost, ForumReply } from '../data/forumBlogData';
 
 export function ForumPage() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -37,6 +43,7 @@ export function ForumPage() {
     category: 'Stress & Anxiety',
     tags: ''
   });
+  const [newReply, setNewReply] = useState('');
 
   const filteredPosts = mockForumPosts.filter(post => {
     const matchesSearch = post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -72,9 +79,15 @@ export function ForumPage() {
   };
 
   const handleCreatePost = () => {
-    // Simulate creating a new post
     setShowNewPost(false);
     setNewPostData({ title: '', content: '', category: 'Stress & Anxiety', tags: '' });
+  };
+
+  const handleSubmitReply = () => {
+    if (newReply.trim()) {
+      // Here you would submit the reply
+      setNewReply('');
+    }
   };
 
   const postReplies = mockForumReplies.filter(reply => reply.postId === selectedPost?.id);
@@ -93,7 +106,7 @@ export function ForumPage() {
             </div>
             <Button 
               onClick={() => setShowNewPost(true)}
-              className="bg-blue-600 hover:bg-blue-700"
+              className="bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-xl transition-all duration-200"
             >
               <Plus className="h-4 w-4 mr-2" />
               Tạo bài viết
@@ -102,7 +115,7 @@ export function ForumPage() {
 
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <Card className="bg-white/80 backdrop-blur-sm border-blue-100">
+            <Card className="bg-white/80 backdrop-blur-sm border-blue-100 hover:shadow-md transition-shadow">
               <CardContent className="p-4">
                 <div className="flex items-center space-x-2">
                   <MessageSquare className="h-5 w-5 text-blue-600" />
@@ -113,7 +126,7 @@ export function ForumPage() {
                 </div>
               </CardContent>
             </Card>
-            <Card className="bg-white/80 backdrop-blur-sm border-blue-100">
+            <Card className="bg-white/80 backdrop-blur-sm border-blue-100 hover:shadow-md transition-shadow">
               <CardContent className="p-4">
                 <div className="flex items-center space-x-2">
                   <TrendingUp className="h-5 w-5 text-green-600" />
@@ -124,7 +137,7 @@ export function ForumPage() {
                 </div>
               </CardContent>
             </Card>
-            <Card className="bg-white/80 backdrop-blur-sm border-blue-100">
+            <Card className="bg-white/80 backdrop-blur-sm border-blue-100 hover:shadow-md transition-shadow">
               <CardContent className="p-4">
                 <div className="flex items-center space-x-2">
                   <Heart className="h-5 w-5 text-red-500" />
@@ -135,7 +148,7 @@ export function ForumPage() {
                 </div>
               </CardContent>
             </Card>
-            <Card className="bg-white/80 backdrop-blur-sm border-blue-100">
+            <Card className="bg-white/80 backdrop-blur-sm border-blue-100 hover:shadow-md transition-shadow">
               <CardContent className="p-4">
                 <div className="flex items-center space-x-2">
                   <Eye className="h-5 w-5 text-purple-600" />
@@ -202,12 +215,12 @@ export function ForumPage() {
           {filteredPosts.map((post) => (
             <Card 
               key={post.id} 
-              className="overflow-hidden hover:shadow-lg transition-shadow bg-white/90 backdrop-blur-sm border-blue-100 hover:border-blue-200 cursor-pointer"
+              className="overflow-hidden hover:shadow-lg transition-all duration-300 bg-white/90 backdrop-blur-sm border-blue-100 hover:border-blue-200 cursor-pointer group"
               onClick={() => setSelectedPost(post)}
             >
               <CardContent className="p-6">
                 <div className="flex items-start space-x-4">
-                  <Avatar className="ring-2 ring-blue-100">
+                  <Avatar className="ring-2 ring-blue-100 group-hover:ring-blue-200 transition-all">
                     <AvatarImage src={post.authorAvatar} alt={post.author} />
                     <AvatarFallback>{post.author.charAt(0)}</AvatarFallback>
                   </Avatar>
@@ -218,7 +231,7 @@ export function ForumPage() {
                         <div className="flex items-center space-x-2">
                           {post.isPinned && <Pin className="h-4 w-4 text-blue-600" />}
                           {post.isResolved && <CheckCircle className="h-4 w-4 text-green-600" />}
-                          <h3 className="font-semibold text-gray-900 hover:text-blue-600 transition-colors">
+                          <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
                             {post.title}
                           </h3>
                         </div>
@@ -249,11 +262,11 @@ export function ForumPage() {
                       </div>
 
                       <div className="flex items-center space-x-4 text-sm text-gray-600">
-                        <div className="flex items-center space-x-1">
+                        <div className="flex items-center space-x-1 hover:text-red-500 transition-colors">
                           <Heart className="h-4 w-4" />
                           <span>{post.likes}</span>
                         </div>
-                        <div className="flex items-center space-x-1">
+                        <div className="flex items-center space-x-1 hover:text-blue-500 transition-colors">
                           <MessageSquare className="h-4 w-4" />
                           <span>{post.replies}</span>
                         </div>
@@ -283,112 +296,187 @@ export function ForumPage() {
         )}
       </div>
 
-      {/* Post Detail Dialog */}
+      {/* Enhanced Post Detail Dialog */}
       <Dialog open={!!selectedPost} onOpenChange={() => setSelectedPost(null)}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[85vh] overflow-hidden p-0">
           {selectedPost && (
-            <div className="space-y-6">
-              <DialogHeader>
-                <div className="flex items-center space-x-2 mb-2">
-                  {selectedPost.isPinned && <Pin className="h-4 w-4 text-blue-600" />}
-                  {selectedPost.isResolved && <CheckCircle className="h-4 w-4 text-green-600" />}
-                  <DialogTitle className="text-xl">{selectedPost.title}</DialogTitle>
+            <div className="flex flex-col h-full">
+              {/* Header */}
+              <div className="flex items-center justify-between p-6 border-b border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50">
+                <div className="flex items-center space-x-3">
+                  {selectedPost.isPinned && <Pin className="h-5 w-5 text-blue-600" />}
+                  {selectedPost.isResolved && <CheckCircle className="h-5 w-5 text-green-600" />}
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900 line-clamp-2">{selectedPost.title}</h2>
+                    <div className="flex items-center space-x-2 text-sm text-gray-600 mt-1">
+                      <Avatar className="w-5 h-5">
+                        <AvatarImage src={selectedPost.authorAvatar} alt={selectedPost.author} />
+                        <AvatarFallback>{selectedPost.author.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                      <span className="font-medium">{selectedPost.author}</span>
+                      <span>•</span>
+                      <span>{formatTimeAgo(selectedPost.createdAt)}</span>
+                      <span>•</span>
+                      <Badge variant="secondary" className="bg-blue-100 text-blue-700">
+                        {selectedPost.category}
+                      </Badge>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2 text-sm text-gray-600">
-                  <Avatar className="w-6 h-6">
-                    <AvatarImage src={selectedPost.authorAvatar} alt={selectedPost.author} />
-                    <AvatarFallback>{selectedPost.author.charAt(0)}</AvatarFallback>
-                  </Avatar>
-                  <span className="font-medium">{selectedPost.author}</span>
-                  <span>•</span>
-                  <span>{formatTimeAgo(selectedPost.createdAt)}</span>
-                  <span>•</span>
-                  <Badge variant="secondary" className="bg-blue-100 text-blue-700">
-                    {selectedPost.category}
-                  </Badge>
-                </div>
-              </DialogHeader>
-
-              {/* Post Content */}
-              <div className="prose max-w-none">
-                <p className="text-gray-700 whitespace-pre-wrap">
-                  {selectedPost.content}
-                </p>
-              </div>
-
-              {/* Tags */}
-              <div className="flex flex-wrap gap-2">
-                {selectedPost.tags.map((tag, index) => (
-                  <Badge key={index} variant="outline" className="border-blue-200 text-blue-600">
-                    #{tag}
-                  </Badge>
-                ))}
-              </div>
-
-              {/* Post Actions */}
-              <div className="flex items-center justify-between border-t border-blue-100 pt-4">
-                <div className="flex items-center space-x-4">
-                  <Button variant="ghost" size="sm" className="text-gray-600 hover:text-red-600">
-                    <Heart className="h-4 w-4 mr-1" />
-                    {selectedPost.likes}
+                <div className="flex items-center space-x-2">
+                  <Button variant="ghost" size="sm" className="text-gray-500 hover:text-blue-600">
+                    <Bookmark className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="sm" className="text-gray-600">
-                    <MessageSquare className="h-4 w-4 mr-1" />
-                    {selectedPost.replies}
+                  <Button variant="ghost" size="sm" className="text-gray-500 hover:text-blue-600">
+                    <Share2 className="h-4 w-4" />
                   </Button>
-                  <span className="text-sm text-gray-600 flex items-center">
-                    <Eye className="h-4 w-4 mr-1" />
-                    {selectedPost.views} lượt xem
-                  </span>
+                  <Button variant="ghost" size="sm" className="text-gray-500 hover:text-gray-700">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setSelectedPost(null)}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
 
-              <Separator />
+              <ScrollArea className="flex-1">
+                <div className="p-6 space-y-6">
+                  {/* Post Content */}
+                  <div className="prose max-w-none">
+                    <p className="text-gray-700 whitespace-pre-wrap leading-relaxed text-base">
+                      {selectedPost.content}
+                    </p>
+                  </div>
 
-              {/* Replies */}
-              <div>
-                <h4 className="font-semibold mb-4">Phản hồi ({postReplies.length})</h4>
-                <div className="space-y-4">
-                  {postReplies.map((reply) => (
-                    <div key={reply.id} className="border border-blue-100 rounded-lg p-4 bg-blue-50/30">
-                      <div className="flex items-start space-x-3">
-                        <Avatar className="w-8 h-8">
-                          <AvatarImage src={reply.authorAvatar} alt={reply.author} />
-                          <AvatarFallback>{reply.author.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-2">
-                            <span className="font-medium text-sm">{reply.author}</span>
-                            <span className="text-xs text-gray-600">{formatTimeAgo(reply.createdAt)}</span>
-                            {reply.isAccepted && (
-                              <Badge variant="secondary" className="bg-green-100 text-green-700 text-xs">
-                                Câu trả lời hay
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-sm text-gray-700 mb-2">{reply.content}</p>
-                          <Button variant="ghost" size="sm" className="text-gray-500 hover:text-red-600 p-0 h-auto">
-                            <ArrowUp className="h-3 w-3 mr-1" />
-                            {reply.likes}
-                          </Button>
-                        </div>
+                  {/* Tags */}
+                  <div className="flex flex-wrap gap-2">
+                    {selectedPost.tags.map((tag, index) => (
+                      <Badge key={index} variant="outline" className="border-blue-200 text-blue-600 hover:bg-blue-50 cursor-pointer transition-colors">
+                        #{tag}
+                      </Badge>
+                    ))}
+                  </div>
+
+                  {/* Post Actions */}
+                  <div className="flex items-center justify-between bg-gradient-to-r from-blue-50/50 to-purple-50/50 rounded-lg p-4 border border-blue-100">
+                    <div className="flex items-center space-x-6">
+                      <Button variant="ghost" size="sm" className="text-gray-600 hover:text-red-600 transition-colors">
+                        <Heart className="h-4 w-4 mr-2" />
+                        <span className="font-medium">{selectedPost.likes}</span>
+                      </Button>
+                      <Button variant="ghost" size="sm" className="text-gray-600 hover:text-blue-600 transition-colors">
+                        <MessageSquare className="h-4 w-4 mr-2" />
+                        <span className="font-medium">{selectedPost.replies}</span>
+                      </Button>
+                      <div className="flex items-center text-sm text-gray-600">
+                        <Eye className="h-4 w-4 mr-1" />
+                        <span>{selectedPost.views} lượt xem</span>
                       </div>
                     </div>
-                  ))}
-                </div>
+                    <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
+                      <Reply className="h-4 w-4 mr-2" />
+                      Trả lời
+                    </Button>
+                  </div>
 
-                {/* Reply Form */}
-                <div className="mt-6 p-4 border border-blue-200 rounded-lg bg-white/80">
-                  <Textarea 
-                    placeholder="Viết phản hồi của bạn..."
-                    className="mb-3 border-blue-200 focus:border-blue-400"
-                    rows={3}
-                  />
-                  <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
-                    Gửi phản hồi
-                  </Button>
+                  <Separator className="my-6" />
+
+                  {/* Replies Section */}
+                  <div>
+                    <div className="flex items-center justify-between mb-6">
+                      <h4 className="text-lg font-semibold text-gray-900">
+                        Phản hồi ({postReplies.length})
+                      </h4>
+                      <Select defaultValue="newest">
+                        <SelectTrigger className="w-32 h-8 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="newest">Mới nhất</SelectItem>
+                          <SelectItem value="oldest">Cũ nhất</SelectItem>
+                          <SelectItem value="popular">Phổ biến</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Reply Form */}
+                    <div className="mb-8 p-4 border border-blue-200 rounded-lg bg-gradient-to-r from-blue-50/30 to-white shadow-sm">
+                      <Textarea 
+                        placeholder="Chia sẻ suy nghĩ của bạn về chủ đề này..."
+                        value={newReply}
+                        onChange={(e) => setNewReply(e.target.value)}
+                        className="mb-3 border-blue-200 focus:border-blue-400 min-h-[80px] resize-none"
+                        rows={3}
+                      />
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs text-gray-500">
+                          Hãy thể hiện sự tôn trọng và chia sẻ những gì hữu ích với cộng đồng
+                        </p>
+                        <Button 
+                          size="sm" 
+                          onClick={handleSubmitReply}
+                          disabled={!newReply.trim()}
+                          className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+                        >
+                          Gửi phản hồi
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Replies List */}
+                    <div className="space-y-4">
+                      {postReplies.map((reply) => (
+                        <div key={reply.id} className="group hover:bg-blue-50/30 rounded-lg p-4 transition-colors border border-transparent hover:border-blue-100">
+                          <div className="flex items-start space-x-4">
+                            <Avatar className="w-9 h-9 ring-2 ring-blue-100">
+                              <AvatarImage src={reply.authorAvatar} alt={reply.author} />
+                              <AvatarFallback>{reply.author.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-2 mb-2">
+                                <span className="font-medium text-sm text-gray-900">{reply.author}</span>
+                                <span className="text-xs text-gray-500">{formatTimeAgo(reply.createdAt)}</span>
+                                {reply.isAccepted && (
+                                  <Badge className="bg-green-100 text-green-700 border-green-200 text-xs">
+                                    <CheckCircle className="h-3 w-3 mr-1" />
+                                    Câu trả lời hay
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-sm text-gray-700 mb-3 leading-relaxed">{reply.content}</p>
+                              <div className="flex items-center space-x-4">
+                                <Button variant="ghost" size="sm" className="text-gray-500 hover:text-blue-600 p-0 h-auto">
+                                  <ArrowUp className="h-3 w-3 mr-1" />
+                                  <span className="text-xs">{reply.likes}</span>
+                                </Button>
+                                <Button variant="ghost" size="sm" className="text-gray-500 hover:text-blue-600 p-0 h-auto">
+                                  <Reply className="h-3 w-3 mr-1" />
+                                  <span className="text-xs">Trả lời</span>
+                                </Button>
+                                <Button variant="ghost" size="sm" className="text-gray-500 hover:text-gray-700 p-0 h-auto opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <MoreHorizontal className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {postReplies.length === 0 && (
+                      <div className="text-center py-8 text-gray-500">
+                        <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">Chưa có phản hồi nào. Hãy là người đầu tiên chia sẻ!</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              </ScrollArea>
             </div>
           )}
         </DialogContent>
@@ -396,17 +484,17 @@ export function ForumPage() {
 
       {/* New Post Dialog */}
       <Dialog open={showNewPost} onOpenChange={setShowNewPost}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Tạo bài viết mới</DialogTitle>
+            <DialogTitle className="text-xl font-bold">Tạo bài viết mới</DialogTitle>
             <DialogDescription>
               Chia sẻ câu hỏi, kinh nghiệm hoặc thảo luận của bạn với cộng đồng
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4">
+          <div className="space-y-6">
             <div>
-              <label className="block text-sm font-medium mb-2">Tiêu đề</label>
+              <label className="block text-sm font-medium mb-2">Tiêu đề *</label>
               <Input
                 value={newPostData.title}
                 onChange={(e) => setNewPostData({...newPostData, title: e.target.value})}
@@ -416,7 +504,7 @@ export function ForumPage() {
             </div>
             
             <div>
-              <label className="block text-sm font-medium mb-2">Chủ đề</label>
+              <label className="block text-sm font-medium mb-2">Chủ đề *</label>
               <Select 
                 value={newPostData.category} 
                 onValueChange={(value) => setNewPostData({...newPostData, category: value})}
@@ -433,31 +521,38 @@ export function ForumPage() {
             </div>
             
             <div>
-              <label className="block text-sm font-medium mb-2">Nội dung</label>
+              <label className="block text-sm font-medium mb-2">Nội dung *</label>
               <Textarea
                 value={newPostData.content}
                 onChange={(e) => setNewPostData({...newPostData, content: e.target.value})}
                 placeholder="Chia sẻ suy nghĩ, câu hỏi hoặc kinh nghiệm của bạn..."
-                rows={6}
-                className="border-blue-200 focus:border-blue-400"
+                rows={8}
+                className="border-blue-200 focus:border-blue-400 resize-none"
               />
             </div>
             
             <div>
-              <label className="block text-sm font-medium mb-2">Tags (phân cách bằng dấu phẩy)</label>
+              <label className="block text-sm font-medium mb-2">Tags</label>
               <Input
                 value={newPostData.tags}
                 onChange={(e) => setNewPostData({...newPostData, tags: e.target.value})}
-                placeholder="anxiety, stress, tips..."
+                placeholder="anxiety, stress, tips (phân cách bằng dấu phẩy)"
                 className="border-blue-200 focus:border-blue-400"
               />
+              <p className="text-xs text-gray-500 mt-1">
+                Thêm tags để giúp người khác dễ dàng tìm thấy bài viết của bạn
+              </p>
             </div>
             
-            <div className="flex space-x-2 justify-end">
+            <div className="flex space-x-3 justify-end pt-4 border-t border-blue-100">
               <Button variant="outline" onClick={() => setShowNewPost(false)}>
                 Hủy
               </Button>
-              <Button onClick={handleCreatePost} className="bg-blue-600 hover:bg-blue-700">
+              <Button 
+                onClick={handleCreatePost} 
+                className="bg-blue-600 hover:bg-blue-700"
+                disabled={!newPostData.title.trim() || !newPostData.content.trim()}
+              >
                 Đăng bài
               </Button>
             </div>

@@ -1,10 +1,12 @@
-"use client";
+"use client"
 
 import React, { useState } from 'react';
 import { Navigation } from './components/Navigation';
 import { LandingPage } from './components/LandingPage';
 import { CoursesPage } from './components/CoursesPage';
 import { CourseDetailPage } from './components/CourseDetailPage';
+import { CourseLearnPage } from './components/CourseLearnPage';
+import { CorporatePurchasePage } from './components/CorporatePurchasePage';
 import { ExpertsPage } from './components/ExpertsPage';
 import { ExpertDetailPage } from './components/ExpertDetailPage';
 import { ProfilePage } from './components/ProfilePage';
@@ -12,26 +14,34 @@ import { ForumPage } from './components/ForumPage';
 import { BlogPage } from './components/BlogPage';
 import { AuthPage } from './components/AuthPage';
 import { ScheduleManagementPage } from './components/ScheduleManagementPage';
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from './components/ui/dialog';
+import { AdminDashboard } from './components/AdminDashboard';
+import { AdminUsersPage } from './components/AdminUsersPage';
+import { AdminCoursesPage } from './components/AdminCoursesPage';
+import { AdminCourseReviewPage } from './components/AdminCourseReviewPage';
+import { AdminCreatorReviewPage } from './components/AdminCreatorReviewPage';
+import { TeacherDashboard } from './components/TeacherDashboard';
+import { CreateCoursePage } from './components/CreateCoursePage';
+import { BecomeCreatorPage } from './components/BecomeCreatorPage';
+import { OrganizationPage } from './components/OrganizationPage';
+import { Dialog, DialogContent, DialogTitle } from './components/ui/dialog';
+import { VisuallyHidden } from './components/ui/visually-hidden';
 
 export default function Home() {
   const [currentPage, setCurrentPage] = useState('home');
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [selectedExpertId, setSelectedExpertId] = useState<string | null>(null);
-  const [profileTab, setProfileTab] = useState('profile'); // Default profile tab
-  interface User {
-    id: string;
-    name: string;
-    email: string;
-    role: 'user' | 'expert';
-  }
-
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [profileTab, setProfileTab] = useState('profile');
+  const [currentUser, setCurrentUser] = useState<unknown>(null);
   const [showAuthDialog, setShowAuthDialog] = useState(false);
 
   const handleCourseSelect = (courseId: string) => {
     setSelectedCourseId(courseId);
     setCurrentPage('course-detail');
+  };
+
+  const handleCourseLearn = (courseId: string) => {
+    setSelectedCourseId(courseId);
+    setCurrentPage('course-learn');
   };
 
   const handleExpertSelect = (expertId: string) => {
@@ -49,33 +59,45 @@ export default function Home() {
     setCurrentPage('experts');
   };
 
+  const handleBackToTeacherDashboard = () => {
+    setCurrentPage('teacher-dashboard');
+  };
+
   const handlePurchase = (courseId: string) => {
-    // Check if user is logged in
     if (!currentUser) {
       setShowAuthDialog(true);
       return;
     }
-
-    // Simulate purchase process
     console.log('Purchasing course:', courseId);
-    // Here you would typically integrate with payment system
-    // For now, just show a success message or redirect
+  };
+
+  const handleCorporatePurchase = (courseId: string) => {
+    setSelectedCourseId(courseId);
+    setCurrentPage('corporate-purchase');
+  };
+
+  const handleBackToCourseDetail = () => {
+    if (selectedCourseId) {
+      setCurrentPage('course-detail');
+    } else {
+      setCurrentPage('courses');
+    }
   };
 
   const handleProfileTabChange = (tab: string) => {
     setProfileTab(tab);
   };
 
-  const handleAuthSuccess = (user: { id: string; name: string; email: string; avatar: string; role: string }) => {
-    const mappedUser: User = {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role as 'user' | 'expert', // Ensure role matches the User interface
-    };
-    setCurrentUser(mappedUser);
+  const handleAuthSuccess = (user: any) => {
+    setCurrentUser(user);
     setShowAuthDialog(false);
-    console.log('User authenticated:', mappedUser);
+    console.log('User authenticated:', user);
+    
+    if (user.role === 'admin') {
+      setCurrentPage('admin-dashboard');
+    } else if (user.role === 'teacher') {
+      setCurrentPage('teacher-dashboard');
+    }
   };
 
   const handleLogout = () => {
@@ -92,22 +114,45 @@ export default function Home() {
     setShowAuthDialog(false);
   };
 
-  const handlePageChange = (page: string) => {
-    // Check if protected pages require authentication
-    const protectedPages = ['profile', 'schedule-management'];
+  const handleCreateCourse = () => {
+    setCurrentPage('create-course');
+  };
 
+  const handleEditCourse = (courseId: string) => {
+    setSelectedCourseId(courseId);
+    setCurrentPage('edit-course');
+  };
+
+  const handleSaveCourse = (courseData: any) => {
+    console.log('Saving course:', courseData);
+    setCurrentPage('teacher-dashboard');
+  };
+
+  const handlePageChange = (page: string) => {
+    const protectedPages = ['profile', 'schedule-management', 'admin-dashboard', 'admin-users', 'admin-courses', 'admin-analytics', 'admin-course-review', 'admin-creator-review', 'teacher-dashboard', 'create-course', 'course-learn', 'become-creator', 'organization'];
+    
     if (protectedPages.includes(page) && !currentUser) {
       setShowAuthDialog(true);
       return;
     }
 
-    // Check if schedule management requires expert role
-    if (page === 'schedule-management' && currentUser?.role !== 'expert') {
-      // Redirect non-experts to profile page with a message
-      setCurrentPage('profile');
+    const adminPages = ['admin-dashboard', 'admin-users', 'admin-courses', 'admin-analytics', 'admin-course-review', 'admin-creator-review'];
+    if (adminPages.includes(page) && currentUser?.role !== 'admin') {
+      setCurrentPage('home');
       return;
     }
 
+    const teacherPages = ['teacher-dashboard', 'create-course'];
+    if (teacherPages.includes(page) && currentUser?.role !== 'teacher') {
+      setCurrentPage('home');
+      return;
+    }
+
+    if (page === 'schedule-management' && currentUser?.role !== 'expert') {
+      setCurrentPage('profile');
+      return;
+    }
+    
     setCurrentPage(page);
   };
 
@@ -119,20 +164,37 @@ export default function Home() {
         return <CoursesPage onCourseSelect={handleCourseSelect} />;
       case 'course-detail':
         return selectedCourseId ? (
-          <CourseDetailPage
+          <CourseDetailPage 
             courseId={selectedCourseId}
             onBack={handleBackToCourses}
             onPurchase={handlePurchase}
+            onCorporatePurchase={handleCorporatePurchase}
+            onLearn={handleCourseLearn}
+            currentUser={currentUser}
+          />
+        ) : <CoursesPage onCourseSelect={handleCourseSelect} />;
+      case 'course-learn':
+        return selectedCourseId ? (
+          <CourseLearnPage 
+            courseId={selectedCourseId}
+            onBack={handleBackToCourses}
+          />
+        ) : <CoursesPage onCourseSelect={handleCourseSelect} />;
+      case 'corporate-purchase':
+        return selectedCourseId ? (
+          <CorporatePurchasePage
+            courseId={selectedCourseId}
+            onBack={handleBackToCourseDetail}
           />
         ) : <CoursesPage onCourseSelect={handleCourseSelect} />;
       case 'experts':
         return <ExpertsPage onExpertSelect={handleExpertSelect} />;
       case 'expert-detail':
         return selectedExpertId ? (
-          <ExpertDetailPage
+          <ExpertDetailPage 
             expertId={selectedExpertId}
             onBack={handleBackToExperts}
-            currentUser={currentUser || undefined}
+            currentUser={currentUser}
             onShowAuth={handleShowAuth}
           />
         ) : <ExpertsPage onExpertSelect={handleExpertSelect} />;
@@ -146,9 +208,91 @@ export default function Home() {
         ) : (
           <LandingPage onNavigate={handlePageChange} />
         );
+      case 'teacher-dashboard':
+        return currentUser?.role === 'teacher' ? (
+          <TeacherDashboard 
+            onCreateCourse={handleCreateCourse}
+            onEditCourse={handleEditCourse}
+          />
+        ) : (
+          <LandingPage onNavigate={handlePageChange} />
+        );
+      case 'create-course':
+        return currentUser?.role === 'teacher' ? (
+          <CreateCoursePage 
+            onBack={handleBackToTeacherDashboard}
+            onSave={handleSaveCourse}
+          />
+        ) : (
+          <LandingPage onNavigate={handlePageChange} />
+        );
+      case 'edit-course':
+        return currentUser?.role === 'teacher' && selectedCourseId ? (
+          <CreateCoursePage 
+            onBack={handleBackToTeacherDashboard}
+            onSave={handleSaveCourse}
+            existingCourse={{ id: selectedCourseId }}
+          />
+        ) : (
+          <LandingPage onNavigate={handlePageChange} />
+        );
+      case 'admin-dashboard':
+        return currentUser?.role === 'admin' ? (
+          <AdminDashboard />
+        ) : (
+          <LandingPage onNavigate={handlePageChange} />
+        );
+      case 'admin-users':
+        return currentUser?.role === 'admin' ? (
+          <AdminUsersPage />
+        ) : (
+          <LandingPage onNavigate={handlePageChange} />
+        );
+      case 'admin-courses':
+        return currentUser?.role === 'admin' ? (
+          <AdminCoursesPage />
+        ) : (
+          <LandingPage onNavigate={handlePageChange} />
+        );
+      case 'admin-course-review':
+        return currentUser?.role === 'admin' ? (
+          <AdminCourseReviewPage />
+        ) : (
+          <LandingPage onNavigate={handlePageChange} />
+        );
+      case 'admin-creator-review':
+        return currentUser?.role === 'admin' ? (
+          <AdminCreatorReviewPage />
+        ) : (
+          <LandingPage onNavigate={handlePageChange} />
+        );
+      case 'admin-analytics':
+        return currentUser?.role === 'admin' ? (
+          <AdminDashboard />
+        ) : (
+          <LandingPage onNavigate={handlePageChange} />
+        );
+      case 'become-creator':
+        return currentUser ? (
+          <BecomeCreatorPage 
+            onBack={() => setCurrentPage('profile')}
+            currentUser={currentUser}
+          />
+        ) : (
+          <LandingPage onNavigate={handlePageChange} />
+        );
+      case 'organization':
+        return currentUser ? (
+          <OrganizationPage 
+            onBack={() => setCurrentPage('profile')}
+            currentUser={currentUser}
+          />
+        ) : (
+          <LandingPage onNavigate={handlePageChange} />
+        );
       case 'profile':
         return currentUser ? (
-          <ProfilePage
+          <ProfilePage 
             defaultTab={profileTab}
             onCourseSelect={(courseId) => {
               if (courseId === 'courses') {
@@ -156,9 +300,9 @@ export default function Home() {
               } else if (courseId === 'experts') {
                 setCurrentPage('experts');
               } else {
-                handleCourseSelect(courseId);
+                handleCourseLearn(courseId);
               }
-            }}
+            }} 
           />
         ) : (
           <LandingPage onNavigate={handlePageChange} />
@@ -168,24 +312,29 @@ export default function Home() {
     }
   };
 
-  // Override navigation for detail pages
   const getNavigationPage = () => {
-    if (currentPage === 'course-detail') {
+    if (currentPage === 'course-detail' || currentPage === 'course-learn') {
       return 'courses';
     }
     if (currentPage === 'expert-detail') {
       return 'experts';
+    }
+    if (currentPage === 'corporate-purchase') {
+      return 'courses';
+    }
+    if (currentPage === 'create-course' || currentPage === 'edit-course') {
+      return 'teacher-dashboard';
     }
     return currentPage;
   };
 
   return (
     <div className="min-h-screen bg-background">
-      <Navigation
-        currentPage={getNavigationPage()}
+      <Navigation 
+        currentPage={getNavigationPage()} 
         onPageChange={handlePageChange}
         onProfileTabChange={handleProfileTabChange}
-        currentUser={currentUser || undefined}
+        currentUser={currentUser}
         onShowAuth={handleShowAuth}
         onLogout={handleLogout}
       />
@@ -193,16 +342,17 @@ export default function Home() {
         {renderPage()}
       </main>
 
-      {/* Authentication Dialog */}
       <Dialog open={showAuthDialog} onOpenChange={setShowAuthDialog}>
-        <DialogContent className="max-w-none max-h-none w-screen h-screen p-0 bg-transparent border-none shadow-none">
-          <DialogTitle className="sr-only">
-            Đăng nhập hoặc đăng ký tài khoản
-          </DialogTitle>
-          <DialogDescription className="sr-only">
-            Dialog đăng nhập và đăng ký tài khoản. Người dùng có thể đăng nhập bằng email/password hoặc qua Google/Facebook.
-          </DialogDescription>
-          <AuthPage
+        <DialogContent 
+          className="max-w-none max-h-none w-screen h-screen p-0 bg-transparent border-none shadow-none"
+          aria-describedby={undefined}
+        >
+          <VisuallyHidden>
+            <DialogTitle>
+              Đăng nhập hoặc đăng ký tài khoản
+            </DialogTitle>
+          </VisuallyHidden>
+          <AuthPage 
             onClose={handleCloseAuth}
             onAuthSuccess={handleAuthSuccess}
           />
