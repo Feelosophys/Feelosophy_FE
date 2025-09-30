@@ -31,7 +31,12 @@ export default function Home() {
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [selectedExpertId, setSelectedExpertId] = useState<string | null>(null);
   const [profileTab, setProfileTab] = useState('profile');
-  const [currentUser, setCurrentUser] = useState<unknown>(null);
+  interface User {
+    role: 'admin' | 'teacher' | 'expert' | 'student';
+    [key: string]: unknown; // Add other properties as needed
+  }
+
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [showAuthDialog, setShowAuthDialog] = useState(false);
 
   const handleCourseSelect = (courseId: string) => {
@@ -88,14 +93,14 @@ export default function Home() {
     setProfileTab(tab);
   };
 
-  const handleAuthSuccess = (user: any) => {
-    setCurrentUser(user);
+  const handleAuthSuccess = (user: unknown) => {
+    setCurrentUser(user as User);
     setShowAuthDialog(false);
     console.log('User authenticated:', user);
     
-    if (user.role === 'admin') {
+    if (typeof user === 'object' && user !== null && 'role' in user && user.role === 'admin') {
       setCurrentPage('admin-dashboard');
-    } else if (user.role === 'teacher') {
+    } else if (typeof user === 'object' && user !== null && 'role' in user && user.role === 'teacher') {
       setCurrentPage('teacher-dashboard');
     }
   };
@@ -123,7 +128,7 @@ export default function Home() {
     setCurrentPage('edit-course');
   };
 
-  const handleSaveCourse = (courseData: any) => {
+  const handleSaveCourse = (courseData: unknown) => {
     console.log('Saving course:', courseData);
     setCurrentPage('teacher-dashboard');
   };
@@ -170,7 +175,6 @@ export default function Home() {
             onPurchase={handlePurchase}
             onCorporatePurchase={handleCorporatePurchase}
             onLearn={handleCourseLearn}
-            currentUser={currentUser}
           />
         ) : <CoursesPage onCourseSelect={handleCourseSelect} />;
       case 'course-learn':
@@ -194,7 +198,7 @@ export default function Home() {
           <ExpertDetailPage 
             expertId={selectedExpertId}
             onBack={handleBackToExperts}
-            currentUser={currentUser}
+            currentUser={currentUser || undefined}
             onShowAuth={handleShowAuth}
           />
         ) : <ExpertsPage onExpertSelect={handleExpertSelect} />;
@@ -276,7 +280,7 @@ export default function Home() {
         return currentUser ? (
           <BecomeCreatorPage 
             onBack={() => setCurrentPage('profile')}
-            currentUser={currentUser}
+            currentUser={currentUser || undefined}
           />
         ) : (
           <LandingPage onNavigate={handlePageChange} />
@@ -285,7 +289,7 @@ export default function Home() {
         return currentUser ? (
           <OrganizationPage 
             onBack={() => setCurrentPage('profile')}
-            currentUser={currentUser}
+            currentUser={currentUser || undefined}
           />
         ) : (
           <LandingPage onNavigate={handlePageChange} />
@@ -334,7 +338,7 @@ export default function Home() {
         currentPage={getNavigationPage()} 
         onPageChange={handlePageChange}
         onProfileTabChange={handleProfileTabChange}
-        currentUser={currentUser}
+        currentUser={currentUser || undefined}
         onShowAuth={handleShowAuth}
         onLogout={handleLogout}
       />

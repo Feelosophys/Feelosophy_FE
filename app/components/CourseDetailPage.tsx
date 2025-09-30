@@ -21,7 +21,6 @@ import {
   MessageCircle,
   CheckCircle,
   Calendar,
-  Globe,
   Smartphone,
   Monitor,
   Building2,
@@ -36,6 +35,7 @@ interface CourseDetailPageProps {
   onBack: () => void;
   onPurchase: (courseId: string) => void;
   onCorporatePurchase?: (courseId: string) => void;
+  onLearn: (courseId: string) => void;
 }
 
 export function CourseDetailPage({ courseId, onBack, onPurchase, onCorporatePurchase }: CourseDetailPageProps) {

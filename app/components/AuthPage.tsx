@@ -5,7 +5,6 @@ import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Separator } from './ui/separator';
 import { Alert, AlertDescription } from './ui/alert';
 import { 
@@ -17,9 +16,7 @@ import {
   EyeOff, 
   AlertCircle,
   ArrowLeft,
-  Shield,
   CheckCircle,
-  UserCog,
   Stethoscope,
   Settings,
   GraduationCap
@@ -27,7 +24,7 @@ import {
 
 interface AuthPageProps {
   onClose: () => void;
-  onAuthSuccess: (user: any) => void;
+  onAuthSuccess: (user: unknown) => void;
 }
 
 type AuthStep = 'login' | 'register' | 'forgot-password' | 'verify-code' | 'reset-password';
@@ -128,7 +125,7 @@ export function AuthPage({ onClose, onAuthSuccess }: AuthPageProps) {
       const demoUser = DEMO_ACCOUNTS[accountType];
       onAuthSuccess(demoUser);
       onClose();
-    } catch (err) {
+    } catch {
       setError('Có lỗi xảy ra khi đăng nhập demo');
     } finally {
       setIsLoading(false);
@@ -189,7 +186,7 @@ export function AuthPage({ onClose, onAuthSuccess }: AuthPageProps) {
       
       onAuthSuccess(mockUser);
       onClose();
-    } catch (err) {
+    } catch {
       setError('Email hoặc mật khẩu không đúng');
     } finally {
       setIsLoading(false);
@@ -231,7 +228,7 @@ export function AuthPage({ onClose, onAuthSuccess }: AuthPageProps) {
       
       onAuthSuccess(mockUser);
       onClose();
-    } catch (err) {
+    } catch {
       setError('Có lỗi xảy ra khi đăng ký');
     } finally {
       setIsLoading(false);
@@ -248,55 +245,55 @@ export function AuthPage({ onClose, onAuthSuccess }: AuthPageProps) {
       await new Promise(resolve => setTimeout(resolve, 1000));
       setSuccess('Mã xác nhận đã được gửi đến email của bạn');
       setCurrentStep('verify-code');
-    } catch (err) {
+    } catch {
       setError('Không thể gửi mã xác nhận');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleVerifyCode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError('');
+  // const handleVerifyCode = async (e: React.FormEvent) => {
+  //   e.preventDefault();
+  //   setIsLoading(true);
+  //   setError('');
 
-    try {
-      // Mock verify code
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setSuccess('Mã xác nhận đúng');
-      setCurrentStep('reset-password');
-    } catch (err) {
-      setError('Mã xác nhận không đúng');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  //   try {
+  //     // Mock verify code
+  //     await new Promise(resolve => setTimeout(resolve, 1000));
+  //     setSuccess('Mã xác nhận đúng');
+  //     setCurrentStep('reset-password');
+  //   } catch (err) {
+  //     setError('Mã xác nhận không đúng');
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // };
 
-  const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError('');
+  // const handleResetPassword = async (e: React.FormEvent) => {
+  //   e.preventDefault();
+  //   setIsLoading(true);
+  //   setError('');
 
-    if (forgotPasswordForm.newPassword !== forgotPasswordForm.confirmNewPassword) {
-      setError('Mật khẩu xác nhận không khớp');
-      setIsLoading(false);
-      return;
-    }
+  //   if (forgotPasswordForm.newPassword !== forgotPasswordForm.confirmNewPassword) {
+  //     setError('Mật khẩu xác nhận không khớp');
+  //     setIsLoading(false);
+  //     return;
+  //   }
 
-    try {
-      // Mock reset password
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setSuccess('Mật khẩu đã được đặt lại thành công');
-      setTimeout(() => {
-        setCurrentStep('login');
-        setSuccess('');
-      }, 2000);
-    } catch (err) {
-      setError('Có lỗi xảy ra khi đặt lại mật khẩu');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  //   try {
+  //     // Mock reset password
+  //     await new Promise(resolve => setTimeout(resolve, 1000));
+  //     setSuccess('Mật khẩu đã được đặt lại thành công');
+  //     setTimeout(() => {
+  //       setCurrentStep('login');
+  //       setSuccess('');
+  //     }, 2000);
+  //   } catch (err) {
+  //     setError('Có lỗi xảy ra khi đặt lại mật khẩu');
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // };
 
   const handleSocialLogin = async (provider: 'google' | 'facebook') => {
     setIsLoading(true);
@@ -317,7 +314,7 @@ export function AuthPage({ onClose, onAuthSuccess }: AuthPageProps) {
       
       onAuthSuccess(mockUser);
       onClose();
-    } catch (err) {
+    } catch{
       setError(`Không thể đăng nhập bằng ${provider === 'google' ? 'Google' : 'Facebook'}`);
     } finally {
       setIsLoading(false);
@@ -338,7 +335,7 @@ export function AuthPage({ onClose, onAuthSuccess }: AuthPageProps) {
           <div className="text-sm font-medium text-gray-700 text-center">
             🎯 Demo Accounts - Đăng nhập nhanh:
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2">  
             <Button
               variant="outline"
               onClick={() => handleDemoLogin('expert')}
@@ -382,14 +379,14 @@ export function AuthPage({ onClose, onAuthSuccess }: AuthPageProps) {
           </div>
         </div>
 
-        <div className="relative">
+        {/* <div className="relative">
           <div className="absolute inset-0 flex items-center">
             <Separator />
           </div>
           <div className="relative flex justify-center text-sm">
             <span className="bg-white px-2 text-gray-500">Hoặc đăng nhập thủ công</span>
           </div>
-        </div>
+        </div> */}
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
@@ -457,15 +454,6 @@ export function AuthPage({ onClose, onAuthSuccess }: AuthPageProps) {
           </Button>
         </form>
 
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <Separator />
-          </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="bg-white px-2 text-gray-500">Hoặc đăng nhập bằng</span>
-          </div>
-        </div>
-
         <div className="grid grid-cols-2 gap-3">
           <Button
             variant="outline"
@@ -502,14 +490,6 @@ export function AuthPage({ onClose, onAuthSuccess }: AuthPageProps) {
           >
             Đăng ký ngay
           </button>
-        </div>
-
-        <div className="text-center text-xs text-blue-600 bg-blue-50 p-3 rounded-lg">
-          💡 <strong>Demo:</strong> 
-          <br />• Email chứa "admin" → Quyền admin
-          <br />• Email chứa "teacher"/"instructor" → Quyền giảng viên
-          <br />• Email chứa "doctor"/"expert" → Quyền chuyên gia  
-          <br />• Email chứa "user" → Quyền người dùng
         </div>
       </CardContent>
     </Card>
@@ -702,14 +682,6 @@ export function AuthPage({ onClose, onAuthSuccess }: AuthPageProps) {
             Đăng nhập
           </button>
         </div>
-
-        <div className="text-center text-xs text-blue-600 bg-blue-50 p-3 rounded-lg">
-          💡 <strong>Demo:</strong> 
-          <br />• Email chứa "admin" → Quyền admin
-          <br />• Email chứa "teacher"/"instructor" → Quyền giảng viên
-          <br />• Email chứa "doctor"/"expert" → Quyền chuyên gia  
-          <br />• Email chứa "user" → Quyền người dùng
-        </div>
       </CardContent>
     </Card>
   );
@@ -786,7 +758,7 @@ export function AuthPage({ onClose, onAuthSuccess }: AuthPageProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50/30 flex items-center justify-center p-4">
+    <div className="bg-gradient-to-br from-blue-50 via-white to-blue-50/30 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {renderCurrentStep()}
       </div>

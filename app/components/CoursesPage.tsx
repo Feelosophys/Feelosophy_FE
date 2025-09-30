@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
@@ -9,8 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
 import { Star, Users, Search, Clock, BookOpen, Heart, ShoppingCart, Calendar, Building2, User, Target, Award } from 'lucide-react';
-import { mockCourses, toggleWishlist, isInWishlist, getCoursesByType, type Course } from '../data/mockData';
+import { getCoursesByType, mockCourses, toggleWishlist, isInWishlist, type Course } from '../data/mockData';
+// import { getCoursesByType } from '../api/apiClient'; // Giả sử bạn có hàm này trong apiClient.ts
 import { ImageWithFallback } from './figma/ImageWithFallback';
+// import { getWishlist, purchaseCourse } from '../api/coursesApi'; 
 
 interface CoursesPageProps {
   onCourseSelect?: (courseId: string) => void;
@@ -28,35 +30,66 @@ export function CoursesPage({ onCourseSelect }: CoursesPageProps) {
   const [wishlistItems, setWishlistItems] = useState<string[]>([]);
 
   const currentCourses = getCoursesByType(courseType);
+  // const [currentCourses, setCurrentCourses] = useState<Course[]>([]);
   const categories = Array.from(new Set(currentCourses.map(course => course.category)));
   const ageRanges = Array.from(new Set(currentCourses.map(course => course.ageRange)));
   const durations = Array.from(new Set(currentCourses.map(course => course.courseDuration)));
 
-  const filteredCourses = currentCourses.filter(course => {
-    const matchesSearch = course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         course.instructor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         course.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = categoryFilter === 'all' || course.category === categoryFilter;
-    const matchesAgeRange = ageRangeFilter === 'all' || course.ageRange === ageRangeFilter;
-    const matchesDuration = durationFilter === 'all' || course.courseDuration === durationFilter;
-    
-    return matchesSearch && matchesCategory && matchesAgeRange && matchesDuration;
-  }).sort((a, b) => {
-    switch (sortBy) {
-      case 'price-low':
-        return a.price - b.price;
-      case 'price-high':
-        return b.price - a.price;
-      case 'rating':
-        return b.rating - a.rating;
-      case 'students':
-        return b.students - a.students;
-      case 'newest':
-        return b.id.localeCompare(a.id);
-      default: // popular
-        return b.students - a.students;
-    }
-  });
+  // Fetch courses
+  // useEffect(() => {
+  //   const fetchCourses = async () => {
+  //     setLoading(true);
+  //     setError(null);
+  //     try {
+  //       const data = await getCoursesByType(courseType);
+  //       setCurrentCourses(data);
+  //     } catch (err: any) {
+  //       setError(err.message || 'Không thể tải dữ liệu khóa học');
+  //       console.error(err);
+  //     } finally {
+  //       setLoading(false);
+  //     }
+  //   };
+
+  //   fetchCourses();
+  // }, [courseType]);
+
+  // Fetch wishlist
+  // useEffect(() => {
+  //   const fetchWishlist = async () => {
+  //     try {
+  //       const data = await getWishlist();
+  //       setWishlistItems(data);
+  //     } catch (err) {
+  //       console.error(err);
+  //     }
+  //   };
+
+  //   fetchWishlist();
+  // }, []);
+
+  const filteredCourses = React.useMemo(() => {
+    return currentCourses
+      .filter(course => {
+        const matchesSearch = course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                             course.instructor.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                             course.description.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesCategory = categoryFilter === 'all' || course.category === categoryFilter;
+        const matchesAgeRange = ageRangeFilter === 'all' || course.ageRange === ageRangeFilter;
+        const matchesDuration = durationFilter === 'all' || course.courseDuration === durationFilter;
+        return matchesSearch && matchesCategory && matchesAgeRange && matchesDuration;
+      })
+      .sort((a, b) => {
+        switch (sortBy) {
+          case 'price-low': return a.price - b.price;
+          case 'price-high': return b.price - a.price;
+          case 'rating': return b.rating - a.rating;
+          case 'students': return b.students - a.students;
+          case 'newest': return b.id.localeCompare(a.id);
+          default: return b.students - a.students;
+        }
+      });
+  }, [currentCourses, searchTerm, categoryFilter, ageRangeFilter, durationFilter, sortBy]);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('vi-VN', {

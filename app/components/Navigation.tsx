@@ -18,30 +18,24 @@ import {
   User, 
   MessageSquare, 
   FileText, 
-  History, 
   Calendar,
   Heart,
   LogOut,
   LogIn,
-  Settings,
   BarChart3,
-  UserCog,
-  Shield,
   Database,
   GraduationCap,
   Plus,
-  TrendingUp,
   Building,
   UserPlus,
   ClipboardCheck,
-  Briefcase
 } from 'lucide-react';
 
 interface NavigationProps {
   currentPage: string;
   onPageChange: (page: string) => void;
   onProfileTabChange?: (tab: string) => void;
-  currentUser?: any;
+  currentUser?: { role: string; avatar?: string; name?: string; email?: string };
   onShowAuth?: () => void;
   onLogout?: () => void;
 }
