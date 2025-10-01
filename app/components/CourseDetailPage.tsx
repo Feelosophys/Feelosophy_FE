@@ -1,20 +1,20 @@
 "use client"
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Separator } from './ui/separator';
 import { Progress } from './ui/progress';
-import { 
-  ArrowLeft, 
-  Play, 
-  Clock, 
-  Users, 
-  Star, 
-  BookOpen, 
-  Award, 
+import {
+  ArrowLeft,
+  Play,
+  Clock,
+  Users,
+  Star,
+  BookOpen,
+  Award,
   Download,
   Share2,
   Heart,
@@ -26,10 +26,13 @@ import {
   Monitor,
   Building2,
   ShoppingCart,
-  Gift
+  Gift,
+  Loader2
 } from 'lucide-react';
 import { mockCourses } from '../data/mockData';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import { apiClient } from '../../lib/api';
+import { CourseAPIResponse, Course } from '../../lib/types';
 
 interface CourseDetailPageProps {
   courseId: string;
@@ -41,16 +44,88 @@ interface CourseDetailPageProps {
 export function CourseDetailPage({ courseId, onBack, onPurchase, onCorporatePurchase }: CourseDetailPageProps) {
   const [activeTab, setActiveTab] = useState('overview');
   const [isWishlisted, setIsWishlisted] = useState(false);
-  
-  const course = mockCourses.find(c => c.id === courseId);
+  const [course, setCourse] = useState<Course | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch course details from API
+  useEffect(() => {
+    const fetchCourse = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        console.log('Fetching course details for ID:', courseId);
+        const response = await apiClient.getCourse(courseId);
+        console.log('Course API Response:', response);
+
+        if (response.success && response.data) {
+          // Map API data to UI format
+          const apiData = response.data as unknown as CourseAPIResponse;
+          const mappedCourse = {
+            _id: apiData._id,
+            id: apiData._id, // For compatibility
+            title: apiData.title,
+            description: apiData.description,
+            price: apiData.price,
+            category: typeof apiData.category === 'string' ? apiData.category : apiData.category.name,
+            instructor: apiData.instructor?.name || 'Unknown Instructor',
+            instructorImage: apiData.instructor?.avatar || '',
+            duration: '4 weeks', // Default, API doesn't provide
+            level: 'Beginner' as const, // Default
+            rating: 4.5, // Default, API doesn't provide
+            students: apiData.stats?.totalEnrollments || 0,
+            image: '/placeholder-course.jpg', // Default image
+            topics: [], // Default
+            objectives: [], // Default
+            requirements: [], // Default
+            curriculum: [], // Default
+            reviews: [], // Default
+            ageRange: 'children', // Default
+            courseDuration: '4 weeks', // Default
+            courseType: 'individual' as const, // Default
+            features: ['Video Lectures', 'Quizzes', 'Certificate'], // Default
+            corporateFeatures: [], // Default
+            minParticipants: 1, // Default
+            maxParticipants: 1, // Default
+            totalHours: 12, // Default
+            lessons: apiData.stats?.totalLessons || 0,
+            createdAt: apiData.createdAt,
+            updatedAt: apiData.updatedAt
+          };
+          console.log('Mapped course:', mappedCourse);
+          setCourse(mappedCourse);
+        } else {
+          setError(response.error || 'Failed to fetch course details');
+        }
+      } catch (err) {
+        console.error('Fetch course error:', err);
+        setError('Failed to fetch course details');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCourse();
+  }, [courseId]);
+
   const courseReviews = course?.reviews || [];
 
-  if (!course) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl mb-4">Course not found</h2>
-          <Button onClick={onBack}>Go Back</Button>
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p>Đang tải chi tiết khóa học...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !course) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl mb-4">{error || 'Course not found'}</h2>
+          <Button onClick={onBack}>Quay lại</Button>
         </div>
       </div>
     );
@@ -161,7 +236,7 @@ export function CourseDetailPage({ courseId, onBack, onPurchase, onCorporatePurc
                   <div className="text-sm text-gray-600">Học viên</div>
                 </CardContent>
               </Card>
-              
+
               <Card>
                 <CardContent className="p-4 text-center">
                   <div className="flex items-center justify-center w-12 h-12 bg-green-100 rounded-lg mx-auto mb-2">
@@ -171,7 +246,7 @@ export function CourseDetailPage({ courseId, onBack, onPurchase, onCorporatePurc
                   <div className="text-sm text-gray-600">Đánh giá</div>
                 </CardContent>
               </Card>
-              
+
               <Card>
                 <CardContent className="p-4 text-center">
                   <div className="flex items-center justify-center w-12 h-12 bg-purple-100 rounded-lg mx-auto mb-2">
@@ -181,7 +256,7 @@ export function CourseDetailPage({ courseId, onBack, onPurchase, onCorporatePurc
                   <div className="text-sm text-gray-600">Thời lượng</div>
                 </CardContent>
               </Card>
-              
+
               <Card>
                 <CardContent className="p-4 text-center">
                   <div className="flex items-center justify-center w-12 h-12 bg-orange-100 rounded-lg mx-auto mb-2">
@@ -211,7 +286,7 @@ export function CourseDetailPage({ courseId, onBack, onPurchase, onCorporatePurc
                     <p className="text-gray-700 leading-relaxed mb-6">
                       {course.description}
                     </p>
-                    
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
                         <h4 className="font-semibold mb-3">Bạn sẽ học được gì:</h4>
@@ -239,7 +314,7 @@ export function CourseDetailPage({ courseId, onBack, onPurchase, onCorporatePurc
                           ))}
                         </ul>
                       </div>
-                      
+
                       <div>
                         <h4 className="font-semibold mb-3">Yêu cầu:</h4>
                         <ul className="space-y-2">
@@ -383,11 +458,10 @@ export function CourseDetailPage({ courseId, onBack, onPurchase, onCorporatePurc
                                   {[...Array(5)].map((_, i) => (
                                     <Star
                                       key={i}
-                                      className={`h-4 w-4 ${
-                                        i < review.rating
+                                      className={`h-4 w-4 ${i < review.rating
                                           ? 'fill-yellow-400 text-yellow-400'
                                           : 'text-gray-300'
-                                      }`}
+                                        }`}
                                     />
                                   ))}
                                 </div>
@@ -420,16 +494,16 @@ export function CourseDetailPage({ courseId, onBack, onPurchase, onCorporatePurc
                 </div>
 
                 <div className="space-y-3 mb-6">
-                  <Button 
-                    onClick={() => onPurchase(courseId)} 
+                  <Button
+                    onClick={() => onPurchase(courseId)}
                     className="w-full bg-blue-600 hover:bg-blue-700 h-12 text-lg font-semibold"
                   >
                     <ShoppingCart className="h-5 w-5 mr-2" />
                     Mua ngay
                   </Button>
-                  
-                  <Button 
-                    onClick={() => onCorporatePurchase?.(courseId)} 
+
+                  <Button
+                    onClick={() => onCorporatePurchase?.(courseId)}
                     variant="outline"
                     className="w-full h-12 border-2 border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300"
                   >
@@ -439,7 +513,7 @@ export function CourseDetailPage({ courseId, onBack, onPurchase, onCorporatePurc
                       <span className="text-xs text-blue-600">Từ {getCorporatePrice()}/người</span>
                     </div>
                   </Button>
-                  
+
                   <Button variant="outline" className="w-full">
                     <Gift className="h-4 w-4 mr-2" />
                     Dùng thử miễn phí

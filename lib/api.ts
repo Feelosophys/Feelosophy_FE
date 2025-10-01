@@ -9,6 +9,11 @@ import {
     Expert,
     BlogPost,
     CreateBlogPostData,
+    ForumPost,
+    ForumReply,
+    CreateForumPostData,
+    CreateForumCommentData,
+    ForumReactionData,
 } from './types';
 
 // API Base Configuration
@@ -20,9 +25,14 @@ type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 // API Client Class
 class ApiClient {
     private baseURL: string;
+    private defaultToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4ZDhlMDA4YTRhYTRkNzFlMDAxMmZiOSIsInJvbGVzIjpbInVzZXIiXSwiaWF0IjoxNzU5MjQyNTc5LCJleHAiOjE3NTkzMjg5Nzl9.AdwwfYNBlL2e8iEvan9x4sSPG1bCb1_AqsqVCio_vOk';
 
     constructor(baseURL: string = API_BASE_URL) {
         this.baseURL = baseURL;
+        // Set default token for testing
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('auth_token', this.defaultToken);
+        }
     }
 
     private async request<T>(
@@ -120,6 +130,40 @@ class ApiClient {
         return this.request<void>(`/courses/${id}`, 'DELETE');
     }
 
+    // Additional Course methods
+    async getAllCourses(params?: {
+        page?: number;
+        limit?: number;
+        search?: string;
+        category?: string;
+        minPrice?: number;
+        maxPrice?: number;
+        sortBy?: string;
+        sortOrder?: string;
+        featured?: boolean;
+    }) {
+        return this.request<unknown>('/courses', 'GET', params);
+    }
+
+    async getCoursesByType(courseType: string, params?: {
+        page?: number;
+        limit?: number;
+        search?: string;
+        category?: string;
+        sortBy?: string;
+        sortOrder?: string;
+    }) {
+        return this.request<unknown>(`/courses/type/${courseType}`, 'GET', params);
+    }
+
+    async getAvailableCategories() {
+        return this.request<unknown>('/courses/categories', 'GET');
+    }
+
+    async getTopRatedCourses() {
+        return this.request<unknown>('/courses/top-rated', 'GET');
+    }
+
     // Expert methods
     async getExperts() {
         return this.request<Expert[]>('/experts', 'GET');
@@ -142,16 +186,54 @@ class ApiClient {
         return this.request<BlogPost>('/blog', 'POST', postData);
     }
 
+    // Forum methods
+    async getForumPosts(params?: {
+        status?: 'open' | 'closed';
+        tags?: string[];
+        limit?: number;
+        skip?: number;
+        search?: string;
+        category?: string;
+        sortBy?: string;
+        sortOrder?: string;
+    }) {
+        return this.request<ForumPost[]>('/forum', 'GET', params);
+    }
+
+    async getForumPost(id: string) {
+        return this.request<ForumPost>(`/forum/${id}`, 'GET');
+    }
+
+    async createForumPost(postData: CreateForumPostData) {
+        return this.authenticatedRequest<ForumPost>('/forum', 'POST', postData);
+    }
+
+    async updateForumPost(id: string, postData: Partial<CreateForumPostData & { status?: 'open' | 'closed' }>) {
+        return this.authenticatedRequest<ForumPost>(`/forum/${id}`, 'PUT', postData);
+    }
+
+    async deleteForumPost(id: string) {
+        return this.authenticatedRequest<void>(`/forum/${id}`, 'DELETE');
+    }
+
+    async addForumComment(postId: string, commentData: CreateForumCommentData) {
+        return this.authenticatedRequest<ForumReply>(`/forum/${postId}/comments`, 'POST', commentData);
+    }
+
+    async addForumReaction(postId: string, reactionData: ForumReactionData) {
+        return this.authenticatedRequest<unknown>(`/forum/${postId}/reactions`, 'POST', reactionData);
+    }
+
     // Generic methods
-    async get<T>(endpoint: string, params?: any) {
+    async get<T>(endpoint: string, params?: unknown) {
         return this.request<T>(endpoint, 'GET', params);
     }
 
-    async post<T>(endpoint: string, data?: any) {
+    async post<T>(endpoint: string, data?: unknown) {
         return this.request<T>(endpoint, 'POST', data);
     }
 
-    async put<T>(endpoint: string, data?: any) {
+    async put<T>(endpoint: string, data?: unknown) {
         return this.request<T>(endpoint, 'PUT', data);
     }
 
@@ -170,9 +252,10 @@ class ApiClient {
     // Get authorization token
     getAuthToken(): string | null {
         if (typeof window !== 'undefined') {
-            return localStorage.getItem('auth_token');
+            const token = localStorage.getItem('auth_token');
+            return token || this.defaultToken;
         }
-        return null;
+        return this.defaultToken;
     }
 
     // Remove authorization token
@@ -186,7 +269,7 @@ class ApiClient {
     async authenticatedRequest<T>(
         endpoint: string,
         method: HttpMethod = 'GET',
-        data?: any
+        data?: unknown
     ): Promise<ApiResponse<T>> {
         const token = this.getAuthToken();
         const headers: Record<string, string> = {};

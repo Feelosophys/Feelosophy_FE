@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
@@ -8,9 +8,10 @@ import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
-import { Star, Users, Search, Clock, BookOpen, Heart, ShoppingCart, Calendar, Building2, User, Target, Award } from 'lucide-react';
+import { Star, Users, Search, Clock, BookOpen, Heart, ShoppingCart, Calendar, Building2, User, Target, Award, Loader2 } from 'lucide-react';
 import { mockCourses, toggleWishlist, isInWishlist, getCoursesByType, type Course } from '../data/mockData';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import { apiClient } from '../../lib/api';
 
 interface CoursesPageProps {
   onCourseSelect?: (courseId: string) => void;
@@ -26,37 +27,116 @@ export function CoursesPage({ onCourseSelect }: CoursesPageProps) {
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [wishlistItems, setWishlistItems] = useState<string[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [ageRanges, setAgeRanges] = useState<string[]>([]);
+  const [durations, setDurations] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const currentCourses = getCoursesByType(courseType);
-  const categories = Array.from(new Set(currentCourses.map(course => course.category)));
-  const ageRanges = Array.from(new Set(currentCourses.map(course => course.ageRange)));
-  const durations = Array.from(new Set(currentCourses.map(course => course.courseDuration)));
+  // Fetch courses from API
+  useEffect(() => {
+    const fetchCourses = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        // Map sortBy to backend accepted values
+        let apiSortBy: string;
+        let apiSortOrder: string;
+        switch (sortBy) {
+          case 'popular':
+            apiSortBy = 'enrolledUsers';
+            apiSortOrder = 'desc';
+            break;
+          case 'rating':
+            // Backend doesn't have rating sort, use createdAt
+            apiSortBy = 'createdAt';
+            apiSortOrder = 'desc';
+            break;
+          case 'price-low':
+            apiSortBy = 'price';
+            apiSortOrder = 'asc';
+            break;
+          case 'price-high':
+            apiSortBy = 'price';
+            apiSortOrder = 'desc';
+            break;
+          case 'newest':
+            apiSortBy = 'createdAt';
+            apiSortOrder = 'desc';
+            break;
+          case 'students':
+            apiSortBy = 'enrolledUsers';
+            apiSortOrder = 'desc';
+            break;
+          default:
+            apiSortBy = 'createdAt';
+            apiSortOrder = 'desc';
+        }
 
-  const filteredCourses = currentCourses.filter(course => {
-    const matchesSearch = course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         course.instructor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         course.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = categoryFilter === 'all' || course.category === categoryFilter;
+        const params: any = {
+          page: 1,
+          limit: 12,
+          sortBy: apiSortBy,
+          sortOrder: apiSortOrder,
+        };
+
+        if (searchTerm) params.search = searchTerm;
+        if (categoryFilter !== 'all') params.category = categoryFilter;
+
+        console.log('Fetching courses with params:', params);
+        const response = await apiClient.getAllCourses(params);
+        console.log('API Response:', response);
+
+        if (response.success && response.data) {
+          const allCourses = response.data.courses || [];
+          console.log('All courses data:', allCourses);
+          // Filter client-side by courseType
+          const filteredByType = allCourses.filter((course: Course) => course.courseType === courseType);
+          console.log('Filtered courses for type', courseType, ':', filteredByType);
+          setCourses(filteredByType);
+        } else {
+          setError(response.error || 'Failed to fetch courses');
+        }
+      } catch (err) {
+        console.error('Fetch error:', err);
+        setError('Failed to fetch courses');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCourses();
+  }, [courseType, searchTerm, categoryFilter, sortBy]);
+
+  // Fetch categories
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await apiClient.getAvailableCategories();
+        if (response.success && response.data) {
+          setCategories(response.data.categories || []);
+        }
+      } catch (err) {
+        console.error('Failed to fetch categories', err);
+      }
+    };
+    fetchCategories();
+  }, []);
+
+  // Update filters from courses
+  useEffect(() => {
+    if (courses.length > 0) {
+      setAgeRanges(Array.from(new Set(courses.map(course => course.ageRange))));
+      setDurations(Array.from(new Set(courses.map(course => course.courseDuration))));
+    }
+  }, [courses]);
+
+  const filteredCourses = courses.filter(course => {
     const matchesAgeRange = ageRangeFilter === 'all' || course.ageRange === ageRangeFilter;
     const matchesDuration = durationFilter === 'all' || course.courseDuration === durationFilter;
-    
-    return matchesSearch && matchesCategory && matchesAgeRange && matchesDuration;
-  }).sort((a, b) => {
-    switch (sortBy) {
-      case 'price-low':
-        return a.price - b.price;
-      case 'price-high':
-        return b.price - a.price;
-      case 'rating':
-        return b.rating - a.rating;
-      case 'students':
-        return b.students - a.students;
-      case 'newest':
-        return b.id.localeCompare(a.id);
-      default: // popular
-        return b.students - a.students;
-    }
-  });
+
+    return matchesAgeRange && matchesDuration;
+  }); // Remove .sort() since sorting is done server-side
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('vi-VN', {
@@ -103,11 +183,11 @@ export function CoursesPage({ onCourseSelect }: CoursesPageProps) {
   };
 
   const getStatsForCurrentType = () => {
-    const totalCourses = currentCourses.length;
-    const totalStudents = currentCourses.reduce((sum, course) => sum + course.students, 0);
-    const avgRating = currentCourses.reduce((sum, course) => sum + course.rating, 0) / totalCourses;
-    const totalHours = currentCourses.reduce((sum, course) => sum + course.totalHours, 0);
-    
+    const totalCourses = courses.length;
+    const totalStudents = courses.reduce((sum: number, course: Course) => sum + course.students, 0);
+    const avgRating = courses.reduce((sum: number, course: Course) => sum + course.rating, 0) / totalCourses;
+    const totalHours = courses.reduce((sum: number, course: Course) => sum + course.totalHours, 0);
+
     return { totalCourses, totalStudents, avgRating: avgRating.toFixed(1), totalHours };
   };
 
@@ -127,15 +207,15 @@ export function CoursesPage({ onCourseSelect }: CoursesPageProps) {
         {/* Course Type Tabs */}
         <Tabs value={courseType} onValueChange={(value) => setCourseType(value as 'individual' | 'corporate')} className="mb-8">
           <TabsList className="grid w-full grid-cols-2 bg-white/80 backdrop-blur-sm border border-blue-100 max-w-md">
-            <TabsTrigger 
-              value="individual" 
+            <TabsTrigger
+              value="individual"
               className="flex items-center space-x-2 data-[state=active]:bg-blue-100 data-[state=active]:text-blue-700"
             >
               <User className="h-4 w-4" />
               <span>Cá nhân</span>
             </TabsTrigger>
-            <TabsTrigger 
-              value="corporate" 
+            <TabsTrigger
+              value="corporate"
               className="flex items-center space-x-2 data-[state=active]:bg-blue-100 data-[state=active]:text-blue-700"
             >
               <Building2 className="h-4 w-4" />
@@ -154,7 +234,7 @@ export function CoursesPage({ onCourseSelect }: CoursesPageProps) {
                   <div className="flex-1">
                     <h3 className="text-lg font-semibold text-gray-900 mb-2">Khóa học dành cho Cá nhân</h3>
                     <p className="text-gray-700 mb-4">
-                      Phát triển bản thân, cải thiện sức khỏe tinh thần và xây dựng kỹ năng sống tích cực. 
+                      Phát triển bản thân, cải thiện sức khỏe tinh thần và xây dựng kỹ năng sống tích cực.
                       Học theo tiến độ cá nhân với sự hỗ trợ từ chuyên gia.
                     </p>
                     <div className="flex flex-wrap gap-2">
@@ -188,7 +268,7 @@ export function CoursesPage({ onCourseSelect }: CoursesPageProps) {
                   <div className="flex-1">
                     <h3 className="text-lg font-semibold text-gray-900 mb-2">Chương trình đào tạo Doanh nghiệp</h3>
                     <p className="text-gray-700 mb-4">
-                      Giải pháp đào tạo toàn diện cho tổ chức. Cải thiện môi trường làm việc, 
+                      Giải pháp đào tạo toàn diện cho tổ chức. Cải thiện môi trường làm việc,
                       tăng năng suất và phát triển nhân sự thông qua các chương trình tâm lý học ứng dụng.
                     </p>
                     <div className="flex flex-wrap gap-2">
@@ -211,6 +291,31 @@ export function CoursesPage({ onCourseSelect }: CoursesPageProps) {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Loading and Error States */}
+        {loading && (
+          <div className="flex justify-center items-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+            <span className="ml-2 text-gray-600">Đang tải khóa học...</span>
+          </div>
+        )}
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-8">
+            <div className="flex items-center">
+              <div className="text-red-600 font-medium">Lỗi:</div>
+              <div className="ml-2 text-red-700">{error}</div>
+            </div>
+            <Button
+              onClick={() => window.location.reload()}
+              variant="outline"
+              size="sm"
+              className="mt-2"
+            >
+              Thử lại
+            </Button>
+          </div>
+        )}
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
@@ -276,7 +381,7 @@ export function CoursesPage({ onCourseSelect }: CoursesPageProps) {
                 className="pl-10 border-blue-200 focus:border-blue-400"
               />
             </div>
-            
+
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
               <SelectTrigger className="border-blue-200 focus:border-blue-400">
                 <SelectValue placeholder="Danh mục" />
@@ -329,8 +434,8 @@ export function CoursesPage({ onCourseSelect }: CoursesPageProps) {
               </SelectContent>
             </Select>
 
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={resetFilters}
               className="border-blue-300 text-blue-700 hover:bg-blue-50"
             >
@@ -340,125 +445,123 @@ export function CoursesPage({ onCourseSelect }: CoursesPageProps) {
         </div>
 
         {/* Courses Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredCourses.map((course) => (
-            <Card 
-              key={course.id} 
-              className="overflow-hidden hover:shadow-xl transition-all duration-300 bg-white/90 backdrop-blur-sm border-blue-100 hover:border-blue-200 cursor-pointer group"
-              onClick={() => handleCourseClick(course.id)}
-            >
-              <div className="relative overflow-hidden">
-                <ImageWithFallback
-                  src={course.image}
-                  alt={course.title}
-                  className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
-                />
-                <div className="absolute top-3 left-3">
-                  <Badge variant="secondary" className={`${
-                    course.courseType === 'corporate' 
-                      ? 'bg-emerald-100 text-emerald-700' 
+        {!loading && !error && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredCourses.map((course) => (
+              <Card
+                key={course._id}
+                className="overflow-hidden hover:shadow-xl transition-all duration-300 bg-white/90 backdrop-blur-sm border-blue-100 hover:border-blue-200 cursor-pointer group"
+                onClick={() => handleCourseClick(course._id)}
+              >
+                <div className="relative overflow-hidden">
+                  <ImageWithFallback
+                    src={course.image}
+                    alt={course.title}
+                    className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                  <div className="absolute top-3 left-3">
+                    <Badge variant="secondary" className={`${course.courseType === 'corporate'
+                      ? 'bg-emerald-100 text-emerald-700'
                       : 'bg-blue-100 text-blue-700'
-                  }`}>
-                    {course.category}
-                  </Badge>
-                </div>
-                <div className="absolute top-3 right-3">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={(e) => handleWishlistToggle(course.id, e)}
-                    className={`rounded-full p-2 backdrop-blur-sm ${
-                      isInWishlist(course.id) 
-                        ? 'bg-red-100/80 text-red-600 hover:bg-red-200/80' 
+                      }`}>
+                      {course.category}
+                    </Badge>
+                  </div>
+                  <div className="absolute top-3 right-3">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => handleWishlistToggle(course._id, e)}
+                      className={`rounded-full p-2 backdrop-blur-sm ${isInWishlist(course._id)
+                        ? 'bg-red-100/80 text-red-600 hover:bg-red-200/80'
                         : 'bg-white/80 text-gray-600 hover:bg-white/90'
-                    }`}
-                  >
-                    <Heart className={`h-4 w-4 ${isInWishlist(course.id) ? 'fill-current' : ''}`} />
-                  </Button>
-                </div>
-                <div className="absolute bottom-3 left-3">
-                  <Badge className="bg-white/90 text-gray-800">
-                    {course.ageRange} tuổi
-                  </Badge>
-                </div>
-              </div>
-              
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1 flex-1">
-                    <CardTitle className="text-lg group-hover:text-blue-600 transition-colors line-clamp-2">
-                      {course.title}
-                    </CardTitle>
-                    <CardDescription className="text-blue-600 font-medium">
-                      {course.instructor}
-                    </CardDescription>
+                        }`}
+                    >
+                      <Heart className={`h-4 w-4 ${isInWishlist(course._id) ? 'fill-current' : ''}`} />
+                    </Button>
                   </div>
-                </div>
-                
-                <div className="flex items-center space-x-4 text-sm text-gray-600">
-                  <div className="flex items-center space-x-1">
-                    <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                    <span className="font-medium">{course.rating}</span>
-                    <span>({course.students})</span>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <Clock className="h-4 w-4" />
-                    <span>{course.totalHours}h</span>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <Calendar className="h-4 w-4" />
-                    <span>{course.courseDuration}</span>
+                  <div className="absolute bottom-3 left-3">
+                    <Badge className="bg-white/90 text-gray-800">
+                      {course.ageRange} tuổi
+                    </Badge>
                   </div>
                 </div>
 
-                {/* Corporate specific info */}
-                {course.courseType === 'corporate' && (
-                  <div className="flex items-center space-x-2 text-xs text-emerald-600 bg-emerald-50 px-2 py-1 rounded">
-                    <Users className="h-3 w-3" />
-                    <span>{course.minParticipants}-{course.maxParticipants} người tham gia</span>
-                  </div>
-                )}
-              </CardHeader>
-              
-              <CardContent className="pt-0">
-                <p className="text-sm text-gray-600 line-clamp-3 mb-4">
-                  {course.description}
-                </p>
-                
-                <div className="flex items-center justify-between">
-                  <div className="text-right">
-                    <div className={`text-2xl font-bold ${
-                      course.courseType === 'corporate' ? 'text-emerald-600' : 'text-primary'
-                    }`}>
-                      {formatPrice(course.price)}
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      {course.courseType === 'corporate' 
-                        ? `${course.lessons} modules` 
-                        : `${course.lessons} bài học`
-                      }
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1 flex-1">
+                      <CardTitle className="text-lg group-hover:text-blue-600 transition-colors line-clamp-2">
+                        {course.title}
+                      </CardTitle>
+                      <CardDescription className="text-blue-600 font-medium">
+                        {course.instructor}
+                      </CardDescription>
                     </div>
                   </div>
-                  
-                  <Button 
-                    size="sm"
-                    onClick={(e) => handlePurchase(course, e)}
-                    className={`ml-3 ${
-                      course.courseType === 'corporate'
+
+                  <div className="flex items-center space-x-4 text-sm text-gray-600">
+                    <div className="flex items-center space-x-1">
+                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                      <span className="font-medium">{course.rating}</span>
+                      <span>({course.students})</span>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <Clock className="h-4 w-4" />
+                      <span>{course.totalHours}h</span>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <Calendar className="h-4 w-4" />
+                      <span>{course.courseDuration}</span>
+                    </div>
+                  </div>
+
+                  {/* Corporate specific info */}
+                  {course.courseType === 'corporate' && (
+                    <div className="flex items-center space-x-2 text-xs text-emerald-600 bg-emerald-50 px-2 py-1 rounded">
+                      <Users className="h-3 w-3" />
+                      <span>{course.minParticipants}-{course.maxParticipants} người tham gia</span>
+                    </div>
+                  )}
+                </CardHeader>
+
+                <CardContent className="pt-0">
+                  <p className="text-sm text-gray-600 line-clamp-3 mb-4">
+                    {course.description}
+                  </p>
+
+                  <div className="flex items-center justify-between">
+                    <div className="text-right">
+                      <div className={`text-2xl font-bold ${course.courseType === 'corporate' ? 'text-emerald-600' : 'text-primary'
+                        }`}>
+                        {formatPrice(course.price)}
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        {course.courseType === 'corporate'
+                          ? `${course.lessons} modules`
+                          : `${course.lessons} bài học`
+                        }
+                      </div>
+                    </div>
+
+                    <Button
+                      size="sm"
+                      onClick={(e) => handlePurchase(course, e)}
+                      className={`ml-3 ${course.courseType === 'corporate'
                         ? 'bg-emerald-600 hover:bg-emerald-700'
                         : 'bg-blue-600 hover:bg-blue-700'
-                    }`}
-                  >
-                    <ShoppingCart className="h-4 w-4 mr-2" />
-                    {course.courseType === 'corporate' ? 'Liên hệ' : 'Mua ngay'}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                        }`}
+                    >
+                      <ShoppingCart className="h-4 w-4 mr-2" />
+                      {course.courseType === 'corporate' ? 'Liên hệ' : 'Mua ngay'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
 
-        {filteredCourses.length === 0 && (
+        {!loading && !error && filteredCourses.length === 0 && (
           <div className="text-center py-12">
             <BookOpen className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
@@ -479,13 +582,13 @@ export function CoursesPage({ onCourseSelect }: CoursesPageProps) {
               {selectedCourse?.courseType === 'corporate' ? 'Liên hệ tư vấn' : 'Xác nhận mua khóa học'}
             </DialogTitle>
             <DialogDescription>
-              {selectedCourse?.courseType === 'corporate' 
+              {selectedCourse?.courseType === 'corporate'
                 ? 'Chúng tôi sẽ liên hệ để tư vấn chi tiết về chương trình phù hợp với tổ chức của bạn.'
                 : 'Bạn có chắc chắn muốn mua khóa học này không?'
               }
             </DialogDescription>
           </DialogHeader>
-          
+
           {selectedCourse && (
             <div className="space-y-4">
               <div className="flex space-x-3">
@@ -518,15 +621,14 @@ export function CoursesPage({ onCourseSelect }: CoursesPageProps) {
                   </div>
                 </div>
               )}
-              
+
               <div className="border-t pt-4">
                 <div className="flex justify-between items-center">
                   <span>
                     {selectedCourse.courseType === 'corporate' ? 'Giá khởi điểm:' : 'Giá khóa học:'}
                   </span>
-                  <span className={`font-bold text-lg ${
-                    selectedCourse.courseType === 'corporate' ? 'text-emerald-600' : 'text-primary'
-                  }`}>
+                  <span className={`font-bold text-lg ${selectedCourse.courseType === 'corporate' ? 'text-emerald-600' : 'text-primary'
+                    }`}>
                     {formatPrice(selectedCourse.price)}
                   </span>
                 </div>
@@ -538,15 +640,15 @@ export function CoursesPage({ onCourseSelect }: CoursesPageProps) {
               </div>
             </div>
           )}
-          
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowPurchaseDialog(false)}>
               Hủy
             </Button>
-            <Button 
-              onClick={confirmPurchase} 
-              className={selectedCourse?.courseType === 'corporate' 
-                ? 'bg-emerald-600 hover:bg-emerald-700' 
+            <Button
+              onClick={confirmPurchase}
+              className={selectedCourse?.courseType === 'corporate'
+                ? 'bg-emerald-600 hover:bg-emerald-700'
                 : 'bg-blue-600 hover:bg-blue-700'
               }
             >

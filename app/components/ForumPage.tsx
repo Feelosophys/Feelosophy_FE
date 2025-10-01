@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
@@ -11,14 +11,14 @@ import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Separator } from './ui/separator';
 import { Textarea } from './ui/textarea';
 import { ScrollArea } from './ui/scroll-area';
-import { 
-  Search, 
-  MessageSquare, 
-  Heart, 
-  Eye, 
-  Clock, 
-  Pin, 
-  CheckCircle, 
+import {
+  Search,
+  MessageSquare,
+  Heart,
+  Eye,
+  Clock,
+  Pin,
+  CheckCircle,
   Plus,
   ArrowUp,
   Filter,
@@ -27,9 +27,12 @@ import {
   Bookmark,
   MoreHorizontal,
   Reply,
-  X
+  X,
+  Loader2
 } from 'lucide-react';
-import { mockForumPosts, mockForumReplies, forumCategories, ForumPost, ForumReply } from '../data/forumBlogData';
+import { mockForumReplies, forumCategories, ForumPost, ForumReply } from '../data/forumBlogData';
+import { apiClient } from '../../lib/api';
+import { CreateForumPostData, CreateForumCommentData, ForumReactionData } from '../../lib/types';
 
 export function ForumPage() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -45,11 +48,42 @@ export function ForumPage() {
   });
   const [newReply, setNewReply] = useState('');
 
-  const filteredPosts = mockForumPosts.filter(post => {
+  // API state
+  const [posts, setPosts] = useState<ForumPost[]>([]);
+  const [replies, setReplies] = useState<ForumReply[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [creatingPost, setCreatingPost] = useState(false);
+  const [submittingReply, setSubmittingReply] = useState(false);
+
+  // Fetch forum posts on component mount
+  useEffect(() => {
+    fetchForumPosts();
+  }, []);
+
+  const fetchForumPosts = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await apiClient.getForumPosts();
+      if (response.success && response.data) {
+        setPosts(response.data);
+      } else {
+        setError(response.error || 'Failed to fetch forum posts');
+      }
+    } catch (err) {
+      setError('Failed to fetch forum posts');
+      console.error('Error fetching forum posts:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredPosts = posts.filter(post => {
     const matchesSearch = post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         post.content.toLowerCase().includes(searchTerm.toLowerCase());
+      post.content.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === 'Tất cả' || post.category === selectedCategory;
-    
+
     return matchesSearch && matchesCategory;
   }).sort((a, b) => {
     switch (sortBy) {
@@ -68,29 +102,73 @@ export function ForumPage() {
     const now = new Date();
     const date = new Date(dateString);
     const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
-    
+
     if (diffInHours < 1) return 'Vừa xong';
     if (diffInHours < 24) return `${diffInHours} giờ trước`;
-    
+
     const diffInDays = Math.floor(diffInHours / 24);
     if (diffInDays < 7) return `${diffInDays} ngày trước`;
-    
+
     return date.toLocaleDateString('vi-VN');
   };
 
-  const handleCreatePost = () => {
-    setShowNewPost(false);
-    setNewPostData({ title: '', content: '', category: 'Stress & Anxiety', tags: '' });
-  };
+  const handleCreatePost = async () => {
+    try {
+      setCreatingPost(true);
+      const postData: CreateForumPostData = {
+        title: newPostData.title,
+        content: newPostData.content,
+        category: newPostData.category,
+        tags: newPostData.tags.split(',').map(tag => tag.trim()).filter(tag => tag)
+      };
 
-  const handleSubmitReply = () => {
-    if (newReply.trim()) {
-      // Here you would submit the reply
-      setNewReply('');
+      const response = await apiClient.createForumPost(postData);
+      if (response.success) {
+        setShowNewPost(false);
+        setNewPostData({ title: '', content: '', category: 'Stress & Anxiety', tags: '' });
+        // Refresh posts
+        await fetchForumPosts();
+      } else {
+        console.error('Failed to create post:', response.error);
+      }
+    } catch (err) {
+      console.error('Error creating post:', err);
+    } finally {
+      setCreatingPost(false);
     }
   };
 
-  const postReplies = mockForumReplies.filter(reply => reply.postId === selectedPost?.id);
+  const handleSubmitReply = async () => {
+    if (newReply.trim() && selectedPost) {
+      try {
+        setSubmittingReply(true);
+        const commentData: CreateForumCommentData = {
+          content: newReply
+        };
+        const response = await apiClient.addForumComment(selectedPost.id, commentData);
+        if (response.success) {
+          setNewReply('');
+          // Refresh replies for this post
+          await fetchPostReplies(selectedPost.id);
+        } else {
+          console.error('Failed to submit reply:', response.error);
+        }
+      } catch (err) {
+        console.error('Error submitting reply:', err);
+      } finally {
+        setSubmittingReply(false);
+      }
+    }
+  };
+
+  const fetchPostReplies = async (postId: string) => {
+    // For now, we'll use mock data since backend might not have replies endpoint
+    // In a real implementation, you'd fetch replies from API
+    const mockReplies = mockForumReplies.filter(reply => reply.postId === postId);
+    setReplies(prev => [...prev.filter(r => r.postId !== postId), ...mockReplies]);
+  };
+
+  const postReplies = replies.filter(reply => reply.postId === selectedPost?.id);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50/30 to-white py-8">
@@ -104,11 +182,16 @@ export function ForumPage() {
                 Nơi chia sẻ, thảo luận và hỗ trợ lẫn nhau về sức khỏe tâm lý
               </p>
             </div>
-            <Button 
+            <Button
               onClick={() => setShowNewPost(true)}
               className="bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-xl transition-all duration-200"
+              disabled={creatingPost}
             >
-              <Plus className="h-4 w-4 mr-2" />
+              {creatingPost ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4 mr-2" />
+              )}
               Tạo bài viết
             </Button>
           </div>
@@ -195,8 +278,8 @@ export function ForumPage() {
                 <SelectItem value="views">Nhiều lượt xem</SelectItem>
               </SelectContent>
             </Select>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => {
                 setSearchTerm('');
                 setSelectedCategory('Tất cả');
@@ -212,78 +295,102 @@ export function ForumPage() {
 
         {/* Posts List */}
         <div className="space-y-4">
-          {filteredPosts.map((post) => (
-            <Card 
-              key={post.id} 
-              className="overflow-hidden hover:shadow-lg transition-all duration-300 bg-white/90 backdrop-blur-sm border-blue-100 hover:border-blue-200 cursor-pointer group"
-              onClick={() => setSelectedPost(post)}
-            >
-              <CardContent className="p-6">
-                <div className="flex items-start space-x-4">
-                  <Avatar className="ring-2 ring-blue-100 group-hover:ring-blue-200 transition-all">
-                    <AvatarImage src={post.authorAvatar} alt={post.author} />
-                    <AvatarFallback>{post.author.charAt(0)}</AvatarFallback>
-                  </Avatar>
-                  
-                  <div className="flex-1 space-y-3">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <div className="flex items-center space-x-2">
-                          {post.isPinned && <Pin className="h-4 w-4 text-blue-600" />}
-                          {post.isResolved && <CheckCircle className="h-4 w-4 text-green-600" />}
-                          <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
-                            {post.title}
-                          </h3>
-                        </div>
-                        <div className="flex items-center space-x-2 text-sm text-gray-600">
-                          <span className="font-medium">{post.author}</span>
-                          <span>•</span>
-                          <Clock className="h-3 w-3" />
-                          <span>{formatTimeAgo(post.createdAt)}</span>
-                          <span>•</span>
-                          <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-xs">
-                            {post.category}
-                          </Badge>
+          {loading ? (
+            <div className="text-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
+              <p className="text-gray-600">Đang tải bài viết...</p>
+            </div>
+          ) : error ? (
+            <div className="text-center py-12">
+              <X className="h-8 w-8 mx-auto mb-4 text-red-500" />
+              <p className="text-gray-600 mb-4">{error}</p>
+              <Button onClick={fetchForumPosts} variant="outline">
+                Thử lại
+              </Button>
+            </div>
+          ) : filteredPosts.length === 0 ? (
+            <div className="text-center py-12">
+              <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                Không tìm thấy bài viết nào
+              </h3>
+              <p className="text-gray-600">
+                Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm khác
+              </p>
+            </div>
+          ) : (
+            filteredPosts.map((post) => (
+              <Card
+                key={post.id}
+                className="overflow-hidden hover:shadow-lg transition-all duration-300 bg-white/90 backdrop-blur-sm border-blue-100 hover:border-blue-200 cursor-pointer group"
+                onClick={() => setSelectedPost(post)}
+              >
+                <CardContent className="p-6">
+                  <div className="flex items-start space-x-4">
+                    <Avatar className="ring-2 ring-blue-100 group-hover:ring-blue-200 transition-all">
+                      <AvatarImage src={post.authorAvatar} alt={post.author} />
+                      <AvatarFallback>{post.author.charAt(0)}</AvatarFallback>
+                    </Avatar>
+
+                    <div className="flex-1 space-y-3">
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-1">
+                          <div className="flex items-center space-x-2">
+                            {post.isPinned && <Pin className="h-4 w-4 text-blue-600" />}
+                            {post.isResolved && <CheckCircle className="h-4 w-4 text-green-600" />}
+                            <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+                              {post.title}
+                            </h3>
+                          </div>
+                          <div className="flex items-center space-x-2 text-sm text-gray-600">
+                            <span className="font-medium">{post.author}</span>
+                            <span>•</span>
+                            <Clock className="h-3 w-3" />
+                            <span>{formatTimeAgo(post.createdAt)}</span>
+                            <span>•</span>
+                            <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-xs">
+                              {post.category}
+                            </Badge>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <p className="text-gray-700 line-clamp-2">
-                      {post.content}
-                    </p>
+                      <p className="text-gray-700 line-clamp-2">
+                        {post.content}
+                      </p>
 
-                    <div className="flex items-center justify-between">
-                      <div className="flex flex-wrap gap-1">
-                        {post.tags.map((tag, index) => (
-                          <Badge key={index} variant="outline" className="text-xs border-blue-200 text-blue-600">
-                            #{tag}
-                          </Badge>
-                        ))}
-                      </div>
-
-                      <div className="flex items-center space-x-4 text-sm text-gray-600">
-                        <div className="flex items-center space-x-1 hover:text-red-500 transition-colors">
-                          <Heart className="h-4 w-4" />
-                          <span>{post.likes}</span>
+                      <div className="flex items-center justify-between">
+                        <div className="flex flex-wrap gap-1">
+                          {post.tags.map((tag, index) => (
+                            <Badge key={index} variant="outline" className="text-xs border-blue-200 text-blue-600">
+                              #{tag}
+                            </Badge>
+                          ))}
                         </div>
-                        <div className="flex items-center space-x-1 hover:text-blue-500 transition-colors">
-                          <MessageSquare className="h-4 w-4" />
-                          <span>{post.replies}</span>
-                        </div>
-                        <div className="flex items-center space-x-1">
-                          <Eye className="h-4 w-4" />
-                          <span>{post.views}</span>
+
+                        <div className="flex items-center space-x-4 text-sm text-gray-600">
+                          <div className="flex items-center space-x-1 hover:text-red-500 transition-colors">
+                            <Heart className="h-4 w-4" />
+                            <span>{post.likes}</span>
+                          </div>
+                          <div className="flex items-center space-x-1 hover:text-blue-500 transition-colors">
+                            <MessageSquare className="h-4 w-4" />
+                            <span>{post.replies}</span>
+                          </div>
+                          <div className="flex items-center space-x-1">
+                            <Eye className="h-4 w-4" />
+                            <span>{post.views}</span>
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            )))}
         </div>
 
-        {filteredPosts.length === 0 && (
+        {filteredPosts.length === 0 && !loading && !error && (
           <div className="text-center py-12">
             <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
@@ -333,9 +440,9 @@ export function ForumPage() {
                   <Button variant="ghost" size="sm" className="text-gray-500 hover:text-gray-700">
                     <MoreHorizontal className="h-4 w-4" />
                   </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => setSelectedPost(null)}
                     className="text-gray-500 hover:text-gray-700"
                   >
@@ -406,7 +513,7 @@ export function ForumPage() {
 
                     {/* Reply Form */}
                     <div className="mb-8 p-4 border border-blue-200 rounded-lg bg-gradient-to-r from-blue-50/30 to-white shadow-sm">
-                      <Textarea 
+                      <Textarea
                         placeholder="Chia sẻ suy nghĩ của bạn về chủ đề này..."
                         value={newReply}
                         onChange={(e) => setNewReply(e.target.value)}
@@ -417,13 +524,17 @@ export function ForumPage() {
                         <p className="text-xs text-gray-500">
                           Hãy thể hiện sự tôn trọng và chia sẻ những gì hữu ích với cộng đồng
                         </p>
-                        <Button 
-                          size="sm" 
+                        <Button
+                          size="sm"
                           onClick={handleSubmitReply}
-                          disabled={!newReply.trim()}
+                          disabled={!newReply.trim() || submittingReply}
                           className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
                         >
-                          Gửi phản hồi
+                          {submittingReply ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            'Gửi phản hồi'
+                          )}
                         </Button>
                       </div>
                     </div>
@@ -491,23 +602,23 @@ export function ForumPage() {
               Chia sẻ câu hỏi, kinh nghiệm hoặc thảo luận của bạn với cộng đồng
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-6">
             <div>
               <label className="block text-sm font-medium mb-2">Tiêu đề *</label>
               <Input
                 value={newPostData.title}
-                onChange={(e) => setNewPostData({...newPostData, title: e.target.value})}
+                onChange={(e) => setNewPostData({ ...newPostData, title: e.target.value })}
                 placeholder="Nhập tiêu đề bài viết..."
                 className="border-blue-200 focus:border-blue-400"
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium mb-2">Chủ đề *</label>
-              <Select 
-                value={newPostData.category} 
-                onValueChange={(value) => setNewPostData({...newPostData, category: value})}
+              <Select
+                value={newPostData.category}
+                onValueChange={(value) => setNewPostData({ ...newPostData, category: value })}
               >
                 <SelectTrigger className="border-blue-200 focus:border-blue-400">
                   <SelectValue />
@@ -519,23 +630,23 @@ export function ForumPage() {
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium mb-2">Nội dung *</label>
               <Textarea
                 value={newPostData.content}
-                onChange={(e) => setNewPostData({...newPostData, content: e.target.value})}
+                onChange={(e) => setNewPostData({ ...newPostData, content: e.target.value })}
                 placeholder="Chia sẻ suy nghĩ, câu hỏi hoặc kinh nghiệm của bạn..."
                 rows={8}
                 className="border-blue-200 focus:border-blue-400 resize-none"
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium mb-2">Tags</label>
               <Input
                 value={newPostData.tags}
-                onChange={(e) => setNewPostData({...newPostData, tags: e.target.value})}
+                onChange={(e) => setNewPostData({ ...newPostData, tags: e.target.value })}
                 placeholder="anxiety, stress, tips (phân cách bằng dấu phẩy)"
                 className="border-blue-200 focus:border-blue-400"
               />
@@ -543,17 +654,21 @@ export function ForumPage() {
                 Thêm tags để giúp người khác dễ dàng tìm thấy bài viết của bạn
               </p>
             </div>
-            
+
             <div className="flex space-x-3 justify-end pt-4 border-t border-blue-100">
               <Button variant="outline" onClick={() => setShowNewPost(false)}>
                 Hủy
               </Button>
-              <Button 
-                onClick={handleCreatePost} 
+              <Button
+                onClick={handleCreatePost}
                 className="bg-blue-600 hover:bg-blue-700"
-                disabled={!newPostData.title.trim() || !newPostData.content.trim()}
+                disabled={!newPostData.title.trim() || !newPostData.content.trim() || creatingPost}
               >
-                Đăng bài
+                {creatingPost ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  'Đăng bài'
+                )}
               </Button>
             </div>
           </div>

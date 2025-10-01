@@ -27,18 +27,51 @@ export interface RegisterData {
 
 // Course Types
 export interface Course {
-    id: string;
+    id?: string; // For backward compatibility
+    _id: string;
     title: string;
     description: string;
     instructor: string;
-    instructorId: string;
+    instructorImage?: string;
+    duration: string;
+    level: 'Beginner' | 'Intermediate' | 'Advanced';
     price: number;
-    duration: number;
-    level: 'beginner' | 'intermediate' | 'advanced';
+    originalPrice?: number;
+    rating: number;
+    students: number;
+    image: string;
     category: string;
-    thumbnail?: string;
-    createdAt: string;
-    updatedAt: string;
+    topics?: string[];
+    objectives?: string[];
+    requirements?: string[];
+    curriculum?: {
+        module: string;
+        lessons: {
+            title: string;
+            duration: string;
+            type: 'video' | 'reading' | 'quiz' | 'assignment';
+        }[];
+    }[];
+    reviews?: {
+        id: string;
+        studentName: string;
+        avatar: string;
+        rating: number;
+        comment: string;
+        date: string;
+        verified: boolean;
+    }[];
+    ageRange: string;
+    courseDuration: string;
+    courseType: 'individual' | 'corporate' | 'group';
+    features: string[];
+    corporateFeatures?: string[];
+    minParticipants?: number;
+    maxParticipants?: number;
+    totalHours: number;
+    lessons: number;
+    createdAt?: string;
+    updatedAt?: string;
 }
 
 export interface CreateCourseData {
@@ -85,6 +118,50 @@ export interface CreateBlogPostData {
     tags: string[];
 }
 
+// Forum Types
+export interface ForumPost {
+    id: string;
+    title: string;
+    content: string;
+    author: string;
+    authorAvatar: string;
+    category: string;
+    tags: string[];
+    likes: number;
+    replies: number;
+    views: number;
+    createdAt: string;
+    lastActivity: string;
+    isPinned?: boolean;
+    isResolved?: boolean;
+}
+
+export interface ForumReply {
+    id: string;
+    postId: string;
+    content: string;
+    author: string;
+    authorAvatar: string;
+    likes: number;
+    createdAt: string;
+    isAccepted?: boolean;
+}
+
+export interface CreateForumPostData {
+    title: string;
+    content: string;
+    category: string;
+    tags: string[];
+}
+
+export interface CreateForumCommentData {
+    content: string;
+}
+
+export interface ForumReactionData {
+    type: 'like' | 'love' | 'haha' | 'wow' | 'sad' | 'angry';
+}
+
 // API Response Types
 export interface ApiResponse<T = unknown> {
     success: boolean;
@@ -115,4 +192,30 @@ export interface QueryParams {
     category?: string;
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
+}
+
+// Course API Response Types
+export interface CourseInstructor {
+    _id: string;
+    name: string;
+    email: string;
+    bio?: string;
+    avatar?: string;
+}
+
+export interface CourseStats {
+    totalEnrollments: number;
+    totalLessons: number;
+}
+
+export interface CourseAPIResponse {
+    _id: string;
+    title: string;
+    description: string;
+    price: number;
+    category: string | { _id: string; name: string };
+    instructor: CourseInstructor;
+    stats: CourseStats;
+    createdAt: string;
+    updatedAt: string;
 }
