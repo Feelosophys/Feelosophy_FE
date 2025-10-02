@@ -3,14 +3,18 @@ export interface User {
     id: string;
     email: string;
     name: string;
-    role: 'user' | 'creator' | 'admin';
+    role: 'user' | 'teacher' | 'admin' | 'expert';
+    roles: ('user' | 'teacher' | 'admin' | 'expert')[];
     avatar?: string;
-    createdAt: string;
-    updatedAt: string;
+    title?: string | null;
+    isVerified?: boolean;
+    createdAt?: string;
+    updatedAt?: string;
 }
 
 export interface AuthResponse {
-    token: string;
+    accessToken: string;
+    refreshToken: string;
     user: User;
 }
 
@@ -100,22 +104,54 @@ export interface Expert {
 
 // Blog/Forum Types
 export interface BlogPost {
-    id: string;
+    _id: string;
+    id?: string; // For backward compatibility
     title: string;
+    slug: string;
     content: string;
-    author: string;
-    authorId: string;
-    category: string;
+    excerpt?: string;
+    coverImage?: string;
+    authorId: {
+        _id: string;
+        name: string;
+        email: string;
+        avatar?: string;
+        bio?: string;
+    };
+    author?: string; // For backward compatibility
+    category?: string;
     tags: string[];
+    isPublished: boolean;
+    views: number;
+    likes?: number;
     createdAt: string;
     updatedAt: string;
+    publishedAt?: string;
+    readTime?: number;
+    featured?: boolean;
+}
+
+export interface BlogPagination {
+    currentPage: number;
+    totalPages: number;
+    totalCount: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+    limit: number;
+}
+
+export interface BlogResponse {
+    blogs: BlogPost[];
+    pagination: BlogPagination;
 }
 
 export interface CreateBlogPostData {
     title: string;
     content: string;
-    category: string;
+    coverImage?: string;
+    category?: string;
     tags: string[];
+    isPublished?: boolean;
 }
 
 // Forum Types
@@ -162,12 +198,23 @@ export interface ForumReactionData {
     type: 'like' | 'love' | 'haha' | 'wow' | 'sad' | 'angry';
 }
 
+export interface ForumPostDetail extends ForumPost {
+    comments: ForumReply[];
+    reactions: {
+        id: string;
+        userId: string;
+        type: string;
+        createdAt: string;
+    }[];
+}
+
 // API Response Types
 export interface ApiResponse<T = unknown> {
     success: boolean;
     data?: T;
     message?: string;
     error?: string;
+    status?: number;
 }
 
 export interface ApiError {

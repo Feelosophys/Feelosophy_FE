@@ -1,6 +1,8 @@
 "use client"
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import type { User } from '../lib/types';
+import { useAuthContext } from '../lib/auth-context';
 import { Navigation } from './components/Navigation';
 import { LandingPage } from './components/LandingPage';
 import { CoursesPage } from './components/CoursesPage';
@@ -12,7 +14,7 @@ import { ExpertDetailPage } from './components/ExpertDetailPage';
 import { ProfilePage } from './components/ProfilePage';
 import { ForumPage } from './components/ForumPage';
 import { BlogPage } from './components/BlogPage';
-import { AuthPage } from './components/AuthPage';
+import AuthPage from './components/AuthPage';
 import { ScheduleManagementPage } from './components/ScheduleManagementPage';
 import { AdminDashboard } from './components/AdminDashboard';
 import { AdminUsersPage } from './components/AdminUsersPage';
@@ -27,12 +29,17 @@ import { Dialog, DialogContent, DialogTitle } from './components/ui/dialog';
 import { VisuallyHidden } from './components/ui/visually-hidden';
 
 export default function Home() {
+  const { user: authUser, logout: authLogout } = useAuthContext();
   const [currentPage, setCurrentPage] = useState('home');
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [selectedExpertId, setSelectedExpertId] = useState<string | null>(null);
   const [profileTab, setProfileTab] = useState('profile');
-  const [currentUser, setCurrentUser] = useState<unknown>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [showAuthDialog, setShowAuthDialog] = useState(false);
+
+  useEffect(() => {
+    setCurrentUser(authUser ?? null);
+  }, [authUser]);
 
   const handleCourseSelect = (courseId: string) => {
     setSelectedCourseId(courseId);
@@ -88,11 +95,11 @@ export default function Home() {
     setProfileTab(tab);
   };
 
-  const handleAuthSuccess = (user: any) => {
+  const handleAuthSuccess = (user: User) => {
     setCurrentUser(user);
     setShowAuthDialog(false);
     console.log('User authenticated:', user);
-    
+
     if (user.role === 'admin') {
       setCurrentPage('admin-dashboard');
     } else if (user.role === 'teacher') {
@@ -100,7 +107,8 @@ export default function Home() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await authLogout();
     setCurrentUser(null);
     setCurrentPage('home');
     console.log('User logged out');
@@ -123,14 +131,14 @@ export default function Home() {
     setCurrentPage('edit-course');
   };
 
-  const handleSaveCourse = (courseData: any) => {
+  const handleSaveCourse = (courseData: unknown) => {
     console.log('Saving course:', courseData);
     setCurrentPage('teacher-dashboard');
   };
 
   const handlePageChange = (page: string) => {
     const protectedPages = ['profile', 'schedule-management', 'admin-dashboard', 'admin-users', 'admin-courses', 'admin-analytics', 'admin-course-review', 'admin-creator-review', 'teacher-dashboard', 'create-course', 'course-learn', 'become-creator', 'organization'];
-    
+
     if (protectedPages.includes(page) && !currentUser) {
       setShowAuthDialog(true);
       return;
@@ -152,7 +160,7 @@ export default function Home() {
       setCurrentPage('profile');
       return;
     }
-    
+
     setCurrentPage(page);
   };
 
@@ -164,7 +172,7 @@ export default function Home() {
         return <CoursesPage onCourseSelect={handleCourseSelect} />;
       case 'course-detail':
         return selectedCourseId ? (
-          <CourseDetailPage 
+          <CourseDetailPage
             courseId={selectedCourseId}
             onBack={handleBackToCourses}
             onPurchase={handlePurchase}
@@ -175,7 +183,7 @@ export default function Home() {
         ) : <CoursesPage onCourseSelect={handleCourseSelect} />;
       case 'course-learn':
         return selectedCourseId ? (
-          <CourseLearnPage 
+          <CourseLearnPage
             courseId={selectedCourseId}
             onBack={handleBackToCourses}
           />
@@ -191,7 +199,7 @@ export default function Home() {
         return <ExpertsPage onExpertSelect={handleExpertSelect} />;
       case 'expert-detail':
         return selectedExpertId ? (
-          <ExpertDetailPage 
+          <ExpertDetailPage
             expertId={selectedExpertId}
             onBack={handleBackToExperts}
             currentUser={currentUser}
@@ -199,7 +207,7 @@ export default function Home() {
           />
         ) : <ExpertsPage onExpertSelect={handleExpertSelect} />;
       case 'forum':
-        return <ForumPage />;
+        return <ForumPage onShowAuth={handleShowAuth} />;
       case 'blog':
         return <BlogPage />;
       case 'schedule-management':
@@ -210,7 +218,7 @@ export default function Home() {
         );
       case 'teacher-dashboard':
         return currentUser?.role === 'teacher' ? (
-          <TeacherDashboard 
+          <TeacherDashboard
             onCreateCourse={handleCreateCourse}
             onEditCourse={handleEditCourse}
           />
@@ -219,7 +227,7 @@ export default function Home() {
         );
       case 'create-course':
         return currentUser?.role === 'teacher' ? (
-          <CreateCoursePage 
+          <CreateCoursePage
             onBack={handleBackToTeacherDashboard}
             onSave={handleSaveCourse}
           />
@@ -228,7 +236,7 @@ export default function Home() {
         );
       case 'edit-course':
         return currentUser?.role === 'teacher' && selectedCourseId ? (
-          <CreateCoursePage 
+          <CreateCoursePage
             onBack={handleBackToTeacherDashboard}
             onSave={handleSaveCourse}
             existingCourse={{ id: selectedCourseId }}
@@ -274,7 +282,7 @@ export default function Home() {
         );
       case 'become-creator':
         return currentUser ? (
-          <BecomeCreatorPage 
+          <BecomeCreatorPage
             onBack={() => setCurrentPage('profile')}
             currentUser={currentUser}
           />
@@ -283,7 +291,7 @@ export default function Home() {
         );
       case 'organization':
         return currentUser ? (
-          <OrganizationPage 
+          <OrganizationPage
             onBack={() => setCurrentPage('profile')}
             currentUser={currentUser}
           />
@@ -292,7 +300,7 @@ export default function Home() {
         );
       case 'profile':
         return currentUser ? (
-          <ProfilePage 
+          <ProfilePage
             defaultTab={profileTab}
             onCourseSelect={(courseId) => {
               if (courseId === 'courses') {
@@ -302,7 +310,7 @@ export default function Home() {
               } else {
                 handleCourseLearn(courseId);
               }
-            }} 
+            }}
           />
         ) : (
           <LandingPage onNavigate={handlePageChange} />
@@ -330,8 +338,8 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navigation 
-        currentPage={getNavigationPage()} 
+      <Navigation
+        currentPage={getNavigationPage()}
         onPageChange={handlePageChange}
         onProfileTabChange={handleProfileTabChange}
         currentUser={currentUser}
@@ -343,7 +351,7 @@ export default function Home() {
       </main>
 
       <Dialog open={showAuthDialog} onOpenChange={setShowAuthDialog}>
-        <DialogContent 
+        <DialogContent
           className="max-w-none max-h-none w-screen h-screen p-0 bg-transparent border-none shadow-none"
           aria-describedby={undefined}
         >
@@ -352,7 +360,7 @@ export default function Home() {
               Đăng nhập hoặc đăng ký tài khoản
             </DialogTitle>
           </VisuallyHidden>
-          <AuthPage 
+          <AuthPage
             onClose={handleCloseAuth}
             onAuthSuccess={handleAuthSuccess}
           />

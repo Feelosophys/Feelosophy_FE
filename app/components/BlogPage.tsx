@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
@@ -10,11 +10,11 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Separator } from './ui/separator';
 import { ScrollArea } from './ui/scroll-area';
-import { 
-  Search, 
-  Heart, 
-  Eye, 
-  Clock, 
+import {
+  Search,
+  Heart,
+  Eye,
+  Clock,
   Calendar,
   ArrowRight,
   BookOpen,
@@ -30,8 +30,12 @@ import {
 } from 'lucide-react';
 import { mockBlogArticles, blogCategories, BlogArticle } from '../data/forumBlogData';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import { apiClient } from '../../lib/api';
+import { BlogPost } from '../../lib/types';
+import { useAuthContext } from '../../lib/auth-context';
 
 export function BlogPage() {
+  const { isAuthenticated, loading: authLoading } = useAuthContext();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Tất cả');
   const [sortBy, setSortBy] = useState('recent');
@@ -39,12 +43,83 @@ export function BlogPage() {
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
 
-  const filteredArticles = mockBlogArticles.filter(article => {
+  // API state
+  const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
+  // Fetch blog posts
+  const fetchBlogPosts = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Map frontend sort to backend sort
+      const sortMapping: Record<string, { sortBy: string, sortOrder: string }> = {
+        recent: { sortBy: 'createdAt', sortOrder: 'desc' },
+        popular: { sortBy: 'views', sortOrder: 'desc' },
+        views: { sortBy: 'views', sortOrder: 'desc' },
+        readTime: { sortBy: 'createdAt', sortOrder: 'asc' }
+      };
+
+      const sortConfig = sortMapping[sortBy] || { sortBy: 'createdAt', sortOrder: 'desc' };
+
+      const params = {
+        page: currentPage,
+        limit: 12,
+        search: searchTerm || undefined,
+        tags: selectedCategory !== 'Tất cả' ? selectedCategory : undefined,
+        isPublished: true,
+        ...sortConfig
+      };
+
+      const response = await apiClient.getBlogPosts(params);
+
+      if (response.success && response.data) {
+        setBlogPosts(response.data.blogs || []);
+        setTotalPages(response.data.pagination?.totalPages || 1);
+      } else {
+        setError(response.error || 'Failed to fetch blog posts');
+      }
+    } catch (err) {
+      setError('Failed to fetch blog posts');
+      console.error('Error fetching blog posts:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [searchTerm, selectedCategory, sortBy, currentPage]);
+
+  useEffect(() => {
+    fetchBlogPosts();
+  }, [fetchBlogPosts]);
+
+  // Transform BlogPost to BlogArticle for compatibility
+  const transformedArticles: BlogArticle[] = blogPosts.map(post => ({
+    id: post._id,
+    title: post.title,
+    excerpt: post.excerpt || post.content.substring(0, 200) + '...',
+    content: post.content,
+    author: post.authorId?.name || 'Anonymous',
+    authorAvatar: post.authorId?.avatar || '',
+    authorTitle: post.authorId?.bio || 'Chuyên gia tâm lý',
+    category: post.category || 'Tâm lý học',
+    tags: post.tags || [],
+    image: post.coverImage || '/api/placeholder/400/300',
+    readTime: post.readTime || Math.ceil(post.content.length / 1000),
+    likes: post.likes || 0,
+    views: post.views || 0,
+    publishedAt: post.publishedAt || post.createdAt,
+    featured: post.featured || false
+  }));
+
+  const filteredArticles = transformedArticles.filter(article => {
     const matchesSearch = article.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         article.excerpt.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         article.author.toLowerCase().includes(searchTerm.toLowerCase());
+      article.excerpt.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      article.author.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === 'Tất cả' || article.category === selectedCategory;
-    
+
     return matchesSearch && matchesCategory;
   }).sort((a, b) => {
     switch (sortBy) {
@@ -59,7 +134,7 @@ export function BlogPage() {
     }
   });
 
-  const featuredArticles = mockBlogArticles.filter(article => article.featured);
+  const featuredArticles = filteredArticles.filter(article => article.featured);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('vi-VN', {
@@ -94,6 +169,26 @@ export function BlogPage() {
     setIsLiked(!isLiked);
   };
 
+  const handleArticleClick = async (article: BlogArticle) => {
+    setSelectedArticle(article);
+    // Optionally fetch full details if needed
+    try {
+      const response = await apiClient.getBlogPost(article.id);
+      if (response.success && response.data) {
+        // Update the selected article with full content
+        const fullBlogPost = response.data;
+        const updatedArticle: BlogArticle = {
+          ...article,
+          content: fullBlogPost.content,
+          // Update any other fields from backend if needed
+        };
+        setSelectedArticle(updatedArticle);
+      }
+    } catch (err) {
+      console.error('Error fetching blog details:', err);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50/30 to-white py-8">
       <div className="max-w-7xl mx-auto px-4">
@@ -105,234 +200,270 @@ export function BlogPage() {
           </p>
         </div>
 
-        {/* Featured Articles */}
-        {featuredArticles.length > 0 && (
-          <div className="mb-12">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
-              <Star className="h-6 w-6 text-yellow-500 mr-2" />
-              Bài viết nổi bật
-            </h2>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {featuredArticles.map((article) => (
-                <Card 
+        {/* Loading State */}
+        {loading && (
+          <div className="text-center py-12">
+            <div className="inline-flex items-center px-4 py-2 font-semibold leading-6 text-sm shadow rounded-md text-blue-500 bg-white/80 transition ease-in-out duration-150">
+              <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Đang tải bài viết...
+            </div>
+          </div>
+        )}
+
+        {/* Error State */}
+        {error && (
+          <div className="text-center py-12">
+            <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4 max-w-md mx-auto">
+              <div className="text-red-700 text-sm">
+                {error}
+              </div>
+            </div>
+            <Button
+              onClick={fetchBlogPosts}
+              variant="outline"
+              className="border-red-300 text-red-700 hover:bg-red-50"
+            >
+              Thử lại
+            </Button>
+          </div>
+        )}
+
+        {/* Content - only show when not loading and no error */}
+        {!loading && !error && (
+          <>
+            {/* Featured Articles */}
+            {featuredArticles.length > 0 && (
+              <div className="mb-12">
+                <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                  <Star className="h-6 w-6 text-yellow-500 mr-2" />
+                  Bài viết nổi bật
+                </h2>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {featuredArticles.map((article) => (
+                    <Card
+                      key={article.id}
+                      className="overflow-hidden hover:shadow-xl transition-all duration-300 bg-white/90 backdrop-blur-sm border-blue-100 hover:border-blue-200 cursor-pointer group"
+                      onClick={() => handleArticleClick(article)}
+                    >
+                      <div className="relative overflow-hidden">
+                        <ImageWithFallback
+                          src={article.image}
+                          alt={article.title}
+                          className="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                        <div className="absolute top-4 left-4">
+                          <Badge className="bg-blue-600 text-white shadow-lg">
+                            {article.category}
+                          </Badge>
+                        </div>
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                      </div>
+                      <CardContent className="p-6">
+                        <div className="space-y-3">
+                          <h3 className="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2">
+                            {article.title}
+                          </h3>
+                          <p className="text-gray-600 line-clamp-3">
+                            {article.excerpt}
+                          </p>
+                          <div className="flex items-center justify-between pt-4 border-t border-blue-100">
+                            <div className="flex items-center space-x-3">
+                              <Avatar className="w-8 h-8 ring-2 ring-blue-100">
+                                <AvatarImage src={article.authorAvatar} alt={article.author} />
+                                <AvatarFallback>{article.author.charAt(0)}</AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <div className="font-medium text-sm">{article.author}</div>
+                                <div className="text-xs text-gray-600">{article.authorTitle}</div>
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-4 text-sm text-gray-600">
+                              <span className="flex items-center">
+                                <Clock className="h-4 w-4 mr-1" />
+                                {formatReadTime(article.readTime)}
+                              </span>
+                              <span className="flex items-center">
+                                <Heart className="h-4 w-4 mr-1" />
+                                {article.likes}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Filters */}
+            <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-sm p-6 mb-8 border border-blue-100">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <Input
+                    placeholder="Tìm kiếm bài viết..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 border-blue-200 focus:border-blue-400"
+                  />
+                </div>
+                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                  <SelectTrigger className="border-blue-200 focus:border-blue-400">
+                    <SelectValue placeholder="Chọn chủ đề" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {blogCategories.map(category => (
+                      <SelectItem key={category} value={category}>{category}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={sortBy} onValueChange={setSortBy}>
+                  <SelectTrigger className="border-blue-200 focus:border-blue-400">
+                    <SelectValue placeholder="Sắp xếp theo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="recent">Mới nhất</SelectItem>
+                    <SelectItem value="popular">Phổ biến nhất</SelectItem>
+                    <SelectItem value="views">Nhiều lượt xem</SelectItem>
+                    <SelectItem value="readTime">Thời gian đọc</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSearchTerm('');
+                    setSelectedCategory('Tất cả');
+                    setSortBy('recent');
+                  }}
+                  className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                >
+                  Xóa bộ lọc
+                </Button>
+              </div>
+            </div>
+
+            {/* Articles Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {filteredArticles.map((article) => (
+                <Card
                   key={article.id}
-                  className="overflow-hidden hover:shadow-xl transition-all duration-300 bg-white/90 backdrop-blur-sm border-blue-100 hover:border-blue-200 cursor-pointer group"
-                  onClick={() => setSelectedArticle(article)}
+                  className="overflow-hidden hover:shadow-lg transition-all duration-300 bg-white/90 backdrop-blur-sm border-blue-100 hover:border-blue-200 cursor-pointer group"
+                  onClick={() => handleArticleClick(article)}
                 >
                   <div className="relative overflow-hidden">
                     <ImageWithFallback
                       src={article.image}
                       alt={article.title}
-                      className="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-500"
+                      className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
                     />
-                    <div className="absolute top-4 left-4">
-                      <Badge className="bg-blue-600 text-white shadow-lg">
+                    <div className="absolute top-3 left-3">
+                      <Badge variant="secondary" className="bg-blue-100 text-blue-700">
                         {article.category}
                       </Badge>
                     </div>
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                   </div>
+
                   <CardContent className="p-6">
                     <div className="space-y-3">
-                      <h3 className="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2">
+                      <h3 className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2">
                         {article.title}
                       </h3>
-                      <p className="text-gray-600 line-clamp-3">
+                      <p className="text-sm text-gray-600 line-clamp-3">
                         {article.excerpt}
                       </p>
-                      <div className="flex items-center justify-between pt-4 border-t border-blue-100">
-                        <div className="flex items-center space-x-3">
-                          <Avatar className="w-8 h-8 ring-2 ring-blue-100">
-                            <AvatarImage src={article.authorAvatar} alt={article.author} />
-                            <AvatarFallback>{article.author.charAt(0)}</AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <div className="font-medium text-sm">{article.author}</div>
-                            <div className="text-xs text-gray-600">{article.authorTitle}</div>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-4 text-sm text-gray-600">
-                          <span className="flex items-center">
-                            <Clock className="h-4 w-4 mr-1" />
-                            {formatReadTime(article.readTime)}
-                          </span>
-                          <span className="flex items-center">
-                            <Heart className="h-4 w-4 mr-1" />
-                            {article.likes}
-                          </span>
-                        </div>
+
+                      <div className="flex flex-wrap gap-1 pt-2">
+                        {article.tags.slice(0, 3).map((tag, index) => (
+                          <Badge key={index} variant="outline" className="text-xs border-blue-200 text-blue-600">
+                            #{tag}
+                          </Badge>
+                        ))}
                       </div>
+                    </div>
+                  </CardContent>
+
+                  <CardContent className="px-6 pb-6 pt-0">
+                    <Separator className="mb-4" />
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <Avatar className="w-6 h-6">
+                          <AvatarImage src={article.authorAvatar} alt={article.author} />
+                          <AvatarFallback>{article.author.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm font-medium text-gray-700">{article.author}</span>
+                      </div>
+                      <div className="flex items-center space-x-3 text-xs text-gray-600">
+                        <span className="flex items-center">
+                          <Clock className="h-3 w-3 mr-1" />
+                          {formatReadTime(article.readTime)}
+                        </span>
+                        <span className="flex items-center">
+                          <Eye className="h-3 w-3 mr-1" />
+                          {article.views}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between mt-3">
+                      <span className="text-xs text-gray-500 flex items-center">
+                        <Calendar className="h-3 w-3 mr-1" />
+                        {formatDate(article.publishedAt)}
+                      </span>
+                      <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700 p-0 h-auto">
+                        Đọc tiếp
+                        <ArrowRight className="h-3 w-3 ml-1" />
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
               ))}
             </div>
-          </div>
-        )}
 
-        {/* Filters */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-sm p-6 mb-8 border border-blue-100">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                placeholder="Tìm kiếm bài viết..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 border-blue-200 focus:border-blue-400"
-              />
+            {filteredArticles.length === 0 && (
+              <div className="text-center py-12">
+                <BookOpen className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  Không tìm thấy bài viết nào
+                </h3>
+                <p className="text-gray-600">
+                  Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm khác
+                </p>
+              </div>
+            )}
+
+            {/* Stats Section */}
+            <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card className="text-center bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+                <CardContent className="p-6">
+                  <BookOpen className="h-8 w-8 text-blue-600 mx-auto mb-3" />
+                  <div className="text-2xl font-bold text-blue-900">{transformedArticles.length}</div>
+                  <div className="text-sm text-blue-700">Bài viết chuyên môn</div>
+                </CardContent>
+              </Card>
+              <Card className="text-center bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+                <CardContent className="p-6">
+                  <TrendingUp className="h-8 w-8 text-green-600 mx-auto mb-3" />
+                  <div className="text-2xl font-bold text-green-900">
+                    {transformedArticles.reduce((sum, article) => sum + article.views, 0).toLocaleString()}
+                  </div>
+                  <div className="text-sm text-green-700">Lượt đọc tổng</div>
+                </CardContent>
+              </Card>
+              <Card className="text-center bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+                <CardContent className="p-6">
+                  <Heart className="h-8 w-8 text-purple-600 mx-auto mb-3" />
+                  <div className="text-2xl font-bold text-purple-900">
+                    {transformedArticles.reduce((sum, article) => sum + article.likes, 0)}
+                  </div>
+                  <div className="text-sm text-purple-700">Lượt yêu thích</div>
+                </CardContent>
+              </Card>
             </div>
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger className="border-blue-200 focus:border-blue-400">
-                <SelectValue placeholder="Chọn chủ đề" />
-              </SelectTrigger>
-              <SelectContent>
-                {blogCategories.map(category => (
-                  <SelectItem key={category} value={category}>{category}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="border-blue-200 focus:border-blue-400">
-                <SelectValue placeholder="Sắp xếp theo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="recent">Mới nhất</SelectItem>
-                <SelectItem value="popular">Phổ biến nhất</SelectItem>
-                <SelectItem value="views">Nhiều lượt xem</SelectItem>
-                <SelectItem value="readTime">Thời gian đọc</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setSearchTerm('');
-                setSelectedCategory('Tất cả');
-                setSortBy('recent');
-              }}
-              className="border-blue-300 text-blue-700 hover:bg-blue-50"
-            >
-              Xóa bộ lọc
-            </Button>
-          </div>
-        </div>
-
-        {/* Articles Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {filteredArticles.map((article) => (
-            <Card 
-              key={article.id}
-              className="overflow-hidden hover:shadow-lg transition-all duration-300 bg-white/90 backdrop-blur-sm border-blue-100 hover:border-blue-200 cursor-pointer group"
-              onClick={() => setSelectedArticle(article)}
-            >
-              <div className="relative overflow-hidden">
-                <ImageWithFallback
-                  src={article.image}
-                  alt={article.title}
-                  className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
-                />
-                <div className="absolute top-3 left-3">
-                  <Badge variant="secondary" className="bg-blue-100 text-blue-700">
-                    {article.category}
-                  </Badge>
-                </div>
-              </div>
-              
-              <CardContent className="p-6">
-                <div className="space-y-3">
-                  <h3 className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2">
-                    {article.title}
-                  </h3>
-                  <p className="text-sm text-gray-600 line-clamp-3">
-                    {article.excerpt}
-                  </p>
-                  
-                  <div className="flex flex-wrap gap-1 pt-2">
-                    {article.tags.slice(0, 3).map((tag, index) => (
-                      <Badge key={index} variant="outline" className="text-xs border-blue-200 text-blue-600">
-                        #{tag}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              </CardContent>
-              
-              <CardContent className="px-6 pb-6 pt-0">
-                <Separator className="mb-4" />
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <Avatar className="w-6 h-6">
-                      <AvatarImage src={article.authorAvatar} alt={article.author} />
-                      <AvatarFallback>{article.author.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                    <span className="text-sm font-medium text-gray-700">{article.author}</span>
-                  </div>
-                  <div className="flex items-center space-x-3 text-xs text-gray-600">
-                    <span className="flex items-center">
-                      <Clock className="h-3 w-3 mr-1" />
-                      {formatReadTime(article.readTime)}
-                    </span>
-                    <span className="flex items-center">
-                      <Eye className="h-3 w-3 mr-1" />
-                      {article.views}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between mt-3">
-                  <span className="text-xs text-gray-500 flex items-center">
-                    <Calendar className="h-3 w-3 mr-1" />
-                    {formatDate(article.publishedAt)}
-                  </span>
-                  <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700 p-0 h-auto">
-                    Đọc tiếp
-                    <ArrowRight className="h-3 w-3 ml-1" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {filteredArticles.length === 0 && (
-          <div className="text-center py-12">
-            <BookOpen className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              Không tìm thấy bài viết nào
-            </h3>
-            <p className="text-gray-600">
-              Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm khác
-            </p>
-          </div>
+          </>
         )}
-
-        {/* Stats Section */}
-        <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="text-center bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
-            <CardContent className="p-6">
-              <BookOpen className="h-8 w-8 text-blue-600 mx-auto mb-3" />
-              <div className="text-2xl font-bold text-blue-900">{mockBlogArticles.length}</div>
-              <div className="text-sm text-blue-700">Bài viết chuyên môn</div>
-            </CardContent>
-          </Card>
-          <Card className="text-center bg-gradient-to-br from-green-50 to-green-100 border-green-200">
-            <CardContent className="p-6">
-              <TrendingUp className="h-8 w-8 text-green-600 mx-auto mb-3" />
-              <div className="text-2xl font-bold text-green-900">
-                {mockBlogArticles.reduce((sum, article) => sum + article.views, 0).toLocaleString()}
-              </div>
-              <div className="text-sm text-green-700">Lượt đọc tổng</div>
-            </CardContent>
-          </Card>
-          <Card className="text-center bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
-            <CardContent className="p-6">
-              <Heart className="h-8 w-8 text-purple-600 mx-auto mb-3" />
-              <div className="text-2xl font-bold text-purple-900">
-                {mockBlogArticles.reduce((sum, article) => sum + article.likes, 0)}
-              </div>
-              <div className="text-sm text-purple-700">Lượt yêu thích</div>
-            </CardContent>
-          </Card>
-        </div>
       </div>
 
       {/* Enhanced Article Detail Dialog */}
@@ -354,29 +485,28 @@ export function BlogPage() {
                   </Badge>
                 </div>
                 <div className="absolute top-4 right-4 flex items-center space-x-2">
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={toggleBookmark}
-                    className={`backdrop-blur-sm ${
-                      isBookmarked 
-                        ? 'bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30' 
+                    className={`backdrop-blur-sm ${isBookmarked
+                        ? 'bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30'
                         : 'bg-white/20 text-white hover:bg-white/30'
-                    }`}
+                      }`}
                   >
                     <Bookmark className={`h-4 w-4 ${isBookmarked ? 'fill-current' : ''}`} />
                   </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={handleShare}
                     className="bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm"
                   >
                     <Share2 className="h-4 w-4" />
                   </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => setSelectedArticle(null)}
                     className="bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm"
                   >
@@ -446,9 +576,9 @@ export function BlogPage() {
                   <div className="flex flex-wrap gap-2 pt-6 border-t border-blue-100">
                     <span className="text-sm font-medium text-gray-700 mr-2">Tags:</span>
                     {selectedArticle.tags.map((tag, index) => (
-                      <Badge 
-                        key={index} 
-                        variant="outline" 
+                      <Badge
+                        key={index}
+                        variant="outline"
                         className="border-blue-200 text-blue-600 hover:bg-blue-50 cursor-pointer transition-colors"
                       >
                         #{tag}
@@ -460,33 +590,32 @@ export function BlogPage() {
                   <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6 border border-blue-100">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-6">
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={toggleLike}
-                          className={`${
-                            isLiked 
-                              ? 'text-red-600 hover:text-red-700' 
+                          className={`${isLiked
+                              ? 'text-red-600 hover:text-red-700'
                               : 'text-gray-600 hover:text-red-600'
-                          } transition-colors`}
+                            } transition-colors`}
                         >
                           <Heart className={`h-5 w-5 mr-2 ${isLiked ? 'fill-current' : ''}`} />
                           <span className="font-medium">
                             {selectedArticle.likes + (isLiked ? 1 : 0)} Yêu thích
                           </span>
                         </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={handleShare}
                           className="text-gray-600 hover:text-blue-600 transition-colors"
                         >
                           <Share2 className="h-5 w-5 mr-2" />
                           <span className="font-medium">Chia sẻ</span>
                         </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           className="text-gray-600 hover:text-green-600 transition-colors"
                         >
                           <MessageSquare className="h-5 w-5 mr-2" />
@@ -508,17 +637,17 @@ export function BlogPage() {
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {mockBlogArticles
-                        .filter(article => 
-                          article.id !== selectedArticle.id && 
-                          (article.category === selectedArticle.category || 
-                           article.tags.some(tag => selectedArticle.tags.includes(tag)))
+                        .filter(article =>
+                          article.id !== selectedArticle.id &&
+                          (article.category === selectedArticle.category ||
+                            article.tags.some(tag => selectedArticle.tags.includes(tag)))
                         )
                         .slice(0, 2)
                         .map((article) => (
-                          <Card 
+                          <Card
                             key={article.id}
                             className="cursor-pointer hover:shadow-lg transition-all duration-300 border-blue-100 hover:border-blue-200 group"
-                            onClick={() => setSelectedArticle(article)}
+                            onClick={() => handleArticleClick(article)}
                           >
                             <CardContent className="p-4">
                               <div className="flex space-x-4">
@@ -540,9 +669,9 @@ export function BlogPage() {
                                       <span>•</span>
                                       <span>{formatReadTime(article.readTime)}</span>
                                     </div>
-                                    <Button 
-                                      variant="ghost" 
-                                      size="sm" 
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
                                       className="p-0 h-auto text-blue-600 hover:text-blue-700"
                                     >
                                       <ExternalLink className="h-3 w-3" />
@@ -564,7 +693,7 @@ export function BlogPage() {
                         Nhận những bài viết tâm lý hữu ích và mẹo chăm sóc sức khỏe tinh thần mỗi tuần
                       </p>
                       <div className="flex space-x-3 max-w-md mx-auto">
-                        <Input 
+                        <Input
                           placeholder="Nhập email của bạn"
                           className="bg-white/10 border-white/20 text-white placeholder:text-blue-200"
                         />

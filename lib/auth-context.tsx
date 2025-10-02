@@ -11,7 +11,8 @@ interface AuthContextType {
     login: (credentials: { email: string; password: string }) => Promise<ApiResponse<AuthResponse>>;
     register: (userData: { email: string; password: string; name: string }) => Promise<ApiResponse<AuthResponse>>;
     logout: () => Promise<void>;
-    fetchProfile: () => Promise<void>;
+    fetchProfile: () => Promise<ApiResponse<User>>;
+    initializeSession: (auth: AuthResponse) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);

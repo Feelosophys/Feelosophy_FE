@@ -21,7 +21,6 @@ import {
   MessageCircle,
   CheckCircle,
   Calendar,
-  Globe,
   Smartphone,
   Monitor,
   Building2,
@@ -32,16 +31,25 @@ import {
 import { mockCourses } from '../data/mockData';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { apiClient } from '../../lib/api';
-import { CourseAPIResponse, Course } from '../../lib/types';
+import type { CourseAPIResponse, Course, User } from '../../lib/types';
 
 interface CourseDetailPageProps {
   courseId: string;
   onBack: () => void;
   onPurchase: (courseId: string) => void;
   onCorporatePurchase?: (courseId: string) => void;
+  onLearn?: (courseId: string) => void;
+  currentUser?: User | null;
 }
 
-export function CourseDetailPage({ courseId, onBack, onPurchase, onCorporatePurchase }: CourseDetailPageProps) {
+export function CourseDetailPage({
+  courseId,
+  onBack,
+  onPurchase,
+  onCorporatePurchase,
+  onLearn,
+  currentUser
+}: CourseDetailPageProps) {
   const [activeTab, setActiveTab] = useState('overview');
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [course, setCourse] = useState<Course | null>(null);
@@ -459,8 +467,8 @@ export function CourseDetailPage({ courseId, onBack, onPurchase, onCorporatePurc
                                     <Star
                                       key={i}
                                       className={`h-4 w-4 ${i < review.rating
-                                          ? 'fill-yellow-400 text-yellow-400'
-                                          : 'text-gray-300'
+                                        ? 'fill-yellow-400 text-yellow-400'
+                                        : 'text-gray-300'
                                         }`}
                                     />
                                   ))}
@@ -564,26 +572,33 @@ export function CourseDetailPage({ courseId, onBack, onPurchase, onCorporatePurc
             </Card>
 
             {/* Progress Card (if user is enrolled) */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Tiến độ học tập</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Hoàn thành</span>
-                    <span>{stats.completedLessons}/{stats.totalLessons} bài học</span>
+            {currentUser ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Tiến độ học tập</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between text-sm">
+                      <span>Hoàn thành</span>
+                      <span>{stats.completedLessons}/{stats.totalLessons} bài học</span>
+                    </div>
+                    <Progress value={stats.percentage} className="h-2" />
+                    <div className="text-center">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onLearn?.(courseId)}
+                        disabled={!onLearn}
+                      >
+                        <Play className="h-4 w-4 mr-2" />
+                        Tiếp tục học
+                      </Button>
+                    </div>
                   </div>
-                  <Progress value={stats.percentage} className="h-2" />
-                  <div className="text-center">
-                    <Button variant="outline" size="sm">
-                      <Play className="h-4 w-4 mr-2" />
-                      Tiếp tục học
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            ) : null}
 
             {/* Related Courses */}
             <Card>

@@ -8,6 +8,7 @@ import {
     CreateCourseData,
     Expert,
     BlogPost,
+    BlogResponse,
     CreateBlogPostData,
     ForumPost,
     ForumReply,
@@ -18,6 +19,8 @@ import {
 
 // API Base Configuration
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+const ACCESS_TOKEN_STORAGE_KEY = 'access_token';
+const REFRESH_TOKEN_STORAGE_KEY = 'refresh_token';
 
 // HTTP Methods
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
@@ -25,14 +28,9 @@ type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 // API Client Class
 class ApiClient {
     private baseURL: string;
-    private defaultToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4ZDhlMDA4YTRhYTRkNzFlMDAxMmZiOSIsInJvbGVzIjpbInVzZXIiXSwiaWF0IjoxNzU5MjQyNTc5LCJleHAiOjE3NTkzMjg5Nzl9.AdwwfYNBlL2e8iEvan9x4sSPG1bCb1_AqsqVCio_vOk';
 
     constructor(baseURL: string = API_BASE_URL) {
         this.baseURL = baseURL;
-        // Set default token for testing
-        if (typeof window !== 'undefined') {
-            localStorage.setItem('auth_token', this.defaultToken);
-        }
     }
 
     private async request<T>(
@@ -63,16 +61,42 @@ class ApiClient {
             }
 
             const response = await fetch(url, config);
-            const result = await response.json();
+            const contentType = response.headers.get('content-type');
+            type ApiPayload = {
+                data?: T;
+                message?: string;
+                [key: string]: unknown;
+            };
 
-            if (!response.ok) {
-                throw new Error(result.message || `HTTP Error: ${response.status}`);
+            let payload: ApiPayload = {};
+
+            if (contentType && contentType.includes('application/json')) {
+                payload = (await response.json()) as ApiPayload;
+            } else {
+                const text = await response.text();
+                payload = text ? {
+                    message: text
+                } : {};
+            }
+
+            const message = typeof payload.message === 'string' ? payload.message : undefined;
+            const resolvedData = payload.data !== undefined ? payload.data : (payload as unknown as T | undefined);
+
+            if (response.ok) {
+                return {
+                    success: true,
+                    data: resolvedData,
+                    message,
+                    status: response.status,
+                };
             }
 
             return {
-                success: true,
-                data: result.data || result,
-                message: result.message,
+                success: false,
+                error: message || `HTTP Error: ${response.status}`,
+                data: resolvedData,
+                message,
+                status: response.status,
             };
         } catch (error) {
             console.error('API Request Error:', error);
@@ -93,16 +117,21 @@ class ApiClient {
     }
 
     async logout() {
-        return this.request<void>('/auth/logout', 'POST');
+        const refreshToken = this.getRefreshToken();
+        const response = await this.request<void>('/auth/logout', 'POST', refreshToken ? {
+            refreshToken
+        } : {});
+        this.clearTokens();
+        return response;
     }
 
     // User methods
     async getProfile() {
-        return this.request<User>('/users/profile', 'GET');
+        return this.authenticatedRequest<User>('/users/profile', 'GET');
     }
 
     async updateProfile(data: Partial<User>) {
-        return this.request<User>('/users/profile', 'PUT', data);
+        return this.authenticatedRequest<User>('/users/profile', 'PUT', data);
     }
 
     async getUsers() {
@@ -119,15 +148,15 @@ class ApiClient {
     }
 
     async createCourse(courseData: CreateCourseData) {
-        return this.request<Course>('/courses', 'POST', courseData);
+        return this.authenticatedRequest<Course>('/courses', 'POST', courseData);
     }
 
     async updateCourse(id: string, courseData: Partial<CreateCourseData>) {
-        return this.request<Course>(`/courses/${id}`, 'PUT', courseData);
+        return this.authenticatedRequest<Course>(`/courses/${id}`, 'PUT', courseData);
     }
 
     async deleteCourse(id: string) {
-        return this.request<void>(`/courses/${id}`, 'DELETE');
+        return this.authenticatedRequest<void>(`/courses/${id}`, 'DELETE');
     }
 
     // Additional Course methods
@@ -174,16 +203,38 @@ class ApiClient {
     }
 
     // Blog/Forum methods
-    async getBlogPosts() {
-        return this.request<BlogPost[]>('/blog', 'GET');
+    async getBlogPosts(params?: {
+        page?: number;
+        limit?: number;
+        search?: string;
+        tags?: string;
+        isPublished?: boolean;
+        sortBy?: string;
+        sortOrder?: string;
+    }) {
+        const queryParams = new URLSearchParams();
+        if (params) {
+            Object.entries(params).forEach(([key, value]) => {
+                if (value !== undefined) {
+                    queryParams.append(key, value.toString());
+                }
+            });
+        }
+        const queryString = queryParams.toString();
+        const endpoint = queryString ? `/blogs?${queryString}` : '/blogs';
+        return this.request<BlogResponse>(endpoint, 'GET');
     }
 
     async getBlogPost(id: string) {
-        return this.request<BlogPost>(`/blog/${id}`, 'GET');
+        return this.request<BlogPost>(`/blogs/${id}`, 'GET');
+    }
+
+    async getBlogBySlug(slug: string) {
+        return this.request<BlogPost>(`/blogs/slug/${slug}`, 'GET');
     }
 
     async createBlogPost(postData: CreateBlogPostData) {
-        return this.request<BlogPost>('/blog', 'POST', postData);
+        return this.authenticatedRequest<BlogPost>('/blogs', 'POST', postData);
     }
 
     // Forum methods
@@ -197,11 +248,11 @@ class ApiClient {
         sortBy?: string;
         sortOrder?: string;
     }) {
-        return this.request<ForumPost[]>('/forum', 'GET', params);
+        return this.authenticatedRequest<ForumPost[]>('/forum', 'GET', params);
     }
 
     async getForumPost(id: string) {
-        return this.request<ForumPost>(`/forum/${id}`, 'GET');
+        return this.authenticatedRequest<ForumPost>(`/forum/${id}`, 'GET');
     }
 
     async createForumPost(postData: CreateForumPostData) {
@@ -241,44 +292,114 @@ class ApiClient {
         return this.request<T>(endpoint, 'DELETE');
     }
 
-    // Set authorization token
-    setAuthToken(token: string) {
-        // Store token in localStorage
+    setAuthTokens(accessToken: string, refreshToken: string) {
+        this.setAccessToken(accessToken);
+        this.setRefreshToken(refreshToken);
+    }
+
+    setAccessToken(token: string) {
         if (typeof window !== 'undefined') {
-            localStorage.setItem('auth_token', token);
+            localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, token);
         }
     }
 
-    // Get authorization token
-    getAuthToken(): string | null {
+    setRefreshToken(token: string) {
         if (typeof window !== 'undefined') {
-            const token = localStorage.getItem('auth_token');
-            return token || this.defaultToken;
+            localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, token);
         }
-        return this.defaultToken;
     }
 
-    // Remove authorization token
-    removeAuthToken() {
+    getAccessToken(): string | null {
         if (typeof window !== 'undefined') {
-            localStorage.removeItem('auth_token');
+            return localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY);
         }
+        return null;
+    }
+
+    getRefreshToken(): string | null {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY);
+        }
+        return null;
+    }
+
+    clearTokens() {
+        if (typeof window !== 'undefined') {
+            localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
+            localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
+        }
+    }
+
+    // Make authenticated requests
+    async refreshAccessToken() {
+        const refreshToken = this.getRefreshToken();
+        if (!refreshToken) {
+            return {
+                success: false,
+                error: 'No refresh token available'
+            } satisfies ApiResponse<{ accessToken: string; refreshToken: string }>;
+        }
+
+        const response = await this.request<{
+            accessToken: string;
+            refreshToken: string;
+            user: User;
+        }>('/auth/refresh-token', 'POST', {
+            refreshToken
+        });
+
+        if (response.success && response.data) {
+            const {
+                accessToken,
+                refreshToken: newRefreshToken
+            } = response.data;
+            if (accessToken) {
+                this.setAccessToken(accessToken);
+            }
+            if (newRefreshToken) {
+                this.setRefreshToken(newRefreshToken);
+            }
+        } else if (response.status === 401) {
+            this.clearTokens();
+        }
+
+        return response;
     }
 
     // Make authenticated requests
     async authenticatedRequest<T>(
         endpoint: string,
         method: HttpMethod = 'GET',
-        data?: unknown
+        data?: unknown,
+        attemptRefresh = true
     ): Promise<ApiResponse<T>> {
-        const token = this.getAuthToken();
         const headers: Record<string, string> = {};
+        const accessToken = this.getAccessToken();
 
-        if (token) {
-            headers.Authorization = `Bearer ${token}`;
+        if (accessToken) {
+            headers.Authorization = `Bearer ${accessToken}`;
         }
 
-        return this.request<T>(endpoint, method, data, headers);
+        const initialResponse = await this.request<T>(endpoint, method, data, headers);
+
+        if (!initialResponse.success && initialResponse.status === 401 && attemptRefresh) {
+            const refreshResponse = await this.refreshAccessToken();
+
+            if (refreshResponse.success) {
+                const updatedAccessToken = this.getAccessToken();
+                if (updatedAccessToken) {
+                    headers.Authorization = `Bearer ${updatedAccessToken}`;
+                } else {
+                    delete headers.Authorization;
+                }
+
+                return this.request<T>(endpoint, method, data, headers);
+            }
+
+            this.clearTokens();
+        }
+
+        return initialResponse;
     }
 }
 

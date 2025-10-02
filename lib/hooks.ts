@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { apiClient } from './api';
-import { ApiResponse, User } from './types';
+import { ApiResponse, AuthResponse, User } from './types';
 
 // Hook để quản lý authentication state
 export function useAuth() {
@@ -8,14 +8,23 @@ export function useAuth() {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
 
+    const initializeSession = (authData: AuthResponse) => {
+        apiClient.setAuthTokens(authData.accessToken, authData.refreshToken);
+        setUser(authData.user);
+        setIsAuthenticated(true);
+    };
+
     useEffect(() => {
-        const token = apiClient.getAuthToken();
-        if (token) {
-            setIsAuthenticated(true);
-            // Optionally fetch user profile
-            fetchProfile();
-        }
-        setLoading(false);
+        const initializeAuth = async () => {
+            const token = apiClient.getAccessToken();
+            if (token) {
+                setIsAuthenticated(true);
+                await fetchProfile();
+            }
+            setLoading(false);
+        };
+
+        initializeAuth();
     }, []);
 
     const fetchProfile = async () => {
@@ -23,9 +32,19 @@ export function useAuth() {
             const response = await apiClient.getProfile();
             if (response.success && response.data) {
                 setUser(response.data);
+                setIsAuthenticated(true);
+            } else if (response.status === 401) {
+                apiClient.clearTokens();
+                setUser(null);
+                setIsAuthenticated(false);
             }
+            return response;
         } catch (error) {
             console.error('Failed to fetch profile:', error);
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Failed to fetch profile'
+            };
         }
     };
 
@@ -33,14 +52,14 @@ export function useAuth() {
         try {
             const response = await apiClient.login(credentials);
             if (response.success && response.data) {
-                apiClient.setAuthToken(response.data.token);
-                setUser(response.data.user);
-                setIsAuthenticated(true);
+                initializeSession(response.data);
                 return response;
             }
+            setIsAuthenticated(false);
             return response;
         } catch (error) {
             console.error('Login failed:', error);
+            setIsAuthenticated(false);
             return { success: false, error: 'Login failed' };
         }
     };
@@ -49,14 +68,14 @@ export function useAuth() {
         try {
             const response = await apiClient.register(userData);
             if (response.success && response.data) {
-                apiClient.setAuthToken(response.data.token);
-                setUser(response.data.user);
-                setIsAuthenticated(true);
+                initializeSession(response.data);
                 return response;
             }
+            setIsAuthenticated(false);
             return response;
         } catch (error) {
             console.error('Registration failed:', error);
+            setIsAuthenticated(false);
             return { success: false, error: 'Registration failed' };
         }
     };
@@ -64,7 +83,7 @@ export function useAuth() {
     const logout = async () => {
         try {
             await apiClient.logout();
-            apiClient.removeAuthToken();
+            apiClient.clearTokens();
             setUser(null);
             setIsAuthenticated(false);
         } catch (error) {
@@ -80,6 +99,7 @@ export function useAuth() {
         register,
         logout,
         fetchProfile,
+        initializeSession,
     };
 }
 
