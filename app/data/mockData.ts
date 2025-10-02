@@ -10,7 +10,7 @@ export interface Course {
   originalPrice?: number;
   rating: number;
   students: number;
-  image: string;
+  courseImg: string;
   category: 'individual' | 'corporate';
   topics: string[];
   objectives: string[];

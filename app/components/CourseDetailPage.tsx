@@ -82,7 +82,7 @@ export function CourseDetailPage({
             level: 'Beginner' as const, // Default
             rating: 4.5, // Default, API doesn't provide
             students: apiData.stats?.totalEnrollments || 0,
-            image: '/placeholder-course.jpg', // Default image
+            image: apiData.courseImg, // Default image
             topics: [], // Default
             objectives: [], // Default
             requirements: [], // Default

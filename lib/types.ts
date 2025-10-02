@@ -265,4 +265,5 @@ export interface CourseAPIResponse {
     stats: CourseStats;
     createdAt: string;
     updatedAt: string;
+    courseImg: string;
 }
