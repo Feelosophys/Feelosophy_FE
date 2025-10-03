@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
 import { Star, Users, Search, Clock, BookOpen, Heart, ShoppingCart, Calendar, Building2, User, Target, Award, Loader2 } from 'lucide-react';
-import { mockCourses, toggleWishlist, isInWishlist, getCoursesByType, type Course } from '../data/mockData';
+import { toggleWishlist, isInWishlist, type Course } from '../data/mockData';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { apiClient } from '../../lib/api';
 
@@ -593,7 +593,7 @@ export function CoursesPage({ onCourseSelect }: CoursesPageProps) {
             <div className="space-y-4">
               <div className="flex space-x-3">
                 <ImageWithFallback
-                  src={selectedCourse.image}
+                  src={selectedCourse.courseImg}
                   alt={selectedCourse.title}
                   className="w-16 h-16 object-cover rounded-lg flex-shrink-0"
                 />

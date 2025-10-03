@@ -18,23 +18,17 @@ import {
   User, 
   MessageSquare, 
   FileText, 
-  History, 
   Calendar,
   Heart,
   LogOut,
   LogIn,
-  Settings,
   BarChart3,
-  UserCog,
-  Shield,
   Database,
   GraduationCap,
   Plus,
-  TrendingUp,
   Building,
   UserPlus,
-  ClipboardCheck,
-  Briefcase
+  ClipboardCheck
 } from 'lucide-react';
 
 interface NavigationProps {
