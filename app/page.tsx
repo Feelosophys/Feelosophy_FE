@@ -27,6 +27,7 @@ import { BecomeCreatorPage } from './components/BecomeCreatorPage';
 import { OrganizationPage } from './components/OrganizationPage';
 import { Dialog, DialogContent, DialogTitle } from './components/ui/dialog';
 import { VisuallyHidden } from './components/ui/visually-hidden';
+import PaymentConfirmModal from './components/PaymentConfirmModal';
 
 export default function Home() {
   const { user: authUser, logout: authLogout } = useAuthContext();
@@ -36,6 +37,8 @@ export default function Home() {
   const [profileTab, setProfileTab] = useState('profile');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [showAuthDialog, setShowAuthDialog] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentCourse, setPaymentCourse] = useState<{id: string, title: string, price: number} | null>(null);
 
   useEffect(() => {
     setCurrentUser(authUser ?? null);
@@ -70,12 +73,18 @@ export default function Home() {
     setCurrentPage('teacher-dashboard');
   };
 
-  const handlePurchase = (courseId: string) => {
+  const handlePurchase = (courseId: string, courseTitle: string, coursePrice: number) => {
     if (!currentUser) {
       setShowAuthDialog(true);
       return;
     }
-    console.log('Purchasing course:', courseId);
+    
+    setPaymentCourse({
+      id: courseId,
+      title: courseTitle, 
+      price: coursePrice
+    });
+    setShowPaymentModal(true);
   };
 
   const handleCorporatePurchase = (courseId: string) => {
@@ -207,7 +216,7 @@ export default function Home() {
           />
         ) : <ExpertsPage onExpertSelect={handleExpertSelect} />;
       case 'forum':
-        return <ForumPage onShowAuth={handleShowAuth} />;
+        return <ForumPage />;
       case 'blog':
         return <BlogPage />;
       case 'schedule-management':
@@ -366,6 +375,17 @@ export default function Home() {
           />
         </DialogContent>
       </Dialog>
+
+      {/* Payment Modal */}
+      {paymentCourse && (
+        <PaymentConfirmModal
+          isOpen={showPaymentModal}
+          onClose={() => setShowPaymentModal(false)}
+          courseId={paymentCourse.id}
+          courseTitle={paymentCourse.title}
+          coursePrice={paymentCourse.price}
+        />
+      )}
     </div>
   );
 }

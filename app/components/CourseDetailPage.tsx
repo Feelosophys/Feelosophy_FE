@@ -36,7 +36,7 @@ import type { CourseAPIResponse, Course, User } from '../../lib/types';
 interface CourseDetailPageProps {
   courseId: string;
   onBack: () => void;
-  onPurchase: (courseId: string) => void;
+  onPurchase: (courseId: string, courseTitle: string, coursePrice: number) => void;
   onCorporatePurchase?: (courseId: string) => void;
   onLearn?: (courseId: string) => void;
   currentUser?: User | null;
@@ -503,7 +503,7 @@ export function CourseDetailPage({
 
                 <div className="space-y-3 mb-6">
                   <Button
-                    onClick={() => onPurchase(courseId)}
+                    onClick={() => onPurchase(courseId, course.title, course.price)}
                     className="w-full bg-blue-600 hover:bg-blue-700 h-12 text-lg font-semibold"
                   >
                     <ShoppingCart className="h-5 w-5 mr-2" />
