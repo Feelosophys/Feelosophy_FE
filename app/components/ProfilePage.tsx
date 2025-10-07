@@ -11,25 +11,33 @@ import { Badge } from './ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Progress } from './ui/progress';
 import { User, History, Lock, CreditCard, BookOpen, Users, Calendar, Edit3, Clock, Heart, Star, ShoppingCart, Trash2, Play, CheckCircle, Award, MapPin, Video } from 'lucide-react';
-import { mockUser, mockTransactions, mockCourses, mockWishlist, toggleWishlist } from '../data/mockData';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { useAuthContext } from '@/lib/auth-context';
 import { apiClient } from '@/lib/api';
 import type { UserCourseEnrollment, UserCoursesSummary } from '@/lib/types';
 
-const DEFAULT_COURSE_SUMMARY: UserCoursesSummary = {
-  totalEnrolled: 0,
-  completedCourses: 0,
-  activeCourses: 0
-};
+// Mock appointments/schedule data and transactions (keeping these as mock since only user profile is being updated)
+const mockTransactions = [
+  {
+    id: '1',
+    description: 'Khóa học: Làm chủ cảm xúc',
+    courseName: 'Làm chủ cảm xúc',
+    amount: 1500000,
+    date: '2024-01-15',
+    status: 'completed',
+    type: 'course',
+  },
+  {
+    id: '2',
+    description: 'Tư vấn cá nhân 1 giờ',
+    expertName: 'Dr. Nguyễn Văn A',
+    amount: 500000,
+    date: '2024-01-10',
+    status: 'completed',
+    type: 'consultation',
+  },
+];
 
-
-interface ProfilePageProps {
-  defaultTab?: string;
-  onCourseSelect?: (courseId: string) => void;
-}
-
-// Mock appointments/schedule data
 const mockAppointments = [
   {
     id: '1',
@@ -83,11 +91,56 @@ const mockAppointments = [
   }
 ];
 
+// Mock wishlist data (keeping as mock since only user profile is being updated)
+const mockWishlist = ['course-1', 'course-2'];
+const mockCourses = [
+  {
+    id: 'course-1',
+    title: 'Làm chủ cảm xúc',
+    instructor: 'Dr. Nguyễn Văn A',
+    courseImg: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=600&q=80',
+    category: 'Tâm lý học',
+    rating: 4.8,
+    totalHours: 12,
+    students: 1500,
+    price: 1500000,
+  },
+  {
+    id: 'course-2',
+    title: 'Mindfulness cơ bản',
+    instructor: 'Dr. Trần Thị B',
+    courseImg: 'https://images.unsplash.com/photo-1516321310763-383fb1e27a53?auto=format&fit=crop&w=600&q=80',
+    category: 'Sức khỏe tinh thần',
+    rating: 4.9,
+    totalHours: 8,
+    students: 2000,
+    price: 1200000,
+  },
+];
+
+const toggleWishlist = (courseId: string) => {
+  // Mock toggle function
+  console.log(`Toggled wishlist for course ${courseId}`);
+};
+
+const DEFAULT_COURSE_SUMMARY: UserCoursesSummary = {
+  totalEnrolled: 0,
+  completedCourses: 0,
+  activeCourses: 0
+};
+
+interface ProfilePageProps {
+  defaultTab?: string;
+  onCourseSelect?: (courseId: string) => void;
+}
+
 export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfilePageProps) {
   const { isAuthenticated } = useAuthContext();
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
-  const [userData, setUserData] = useState(mockUser);
+  const [userData, setUserData] = useState<User | null>(null);
+  const [userLoading, setUserLoading] = useState(true);
+  const [userError, setUserError] = useState<string | null>(null);
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
     newPassword: '',
@@ -99,6 +152,30 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
   const [coursesSummary, setCoursesSummary] = useState<UserCoursesSummary>({ ...DEFAULT_COURSE_SUMMARY });
   const [coursesLoading, setCoursesLoading] = useState(false);
   const [coursesError, setCoursesError] = useState<string | null>(null);
+
+  const loadUserProfile = useCallback(async () => {
+    if (!isAuthenticated) {
+      setUserData(null);
+      setUserLoading(false);
+      return;
+    }
+
+    setUserLoading(true);
+    setUserError(null);
+
+    try {
+      const response = await apiClient.getProfile();
+      if (response.success && response.data) {
+        setUserData(response.data);
+      } else {
+        setUserError(response.error || response.message || 'Không thể tải thông tin cá nhân.');
+      }
+    } catch (error) {
+      setUserError(error instanceof Error ? error.message : 'Không thể tải thông tin cá nhân.');
+    } finally {
+      setUserLoading(false);
+    }
+  }, [isAuthenticated]);
 
   const loadEnrolledCourses = useCallback(async () => {
     if (!isAuthenticated) {
@@ -129,14 +206,39 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
     }
   }, [isAuthenticated]);
 
-  // Update active tab when defaultTab changes
+  useEffect(() => {
+    loadUserProfile();
+    loadEnrolledCourses();
+  }, [loadUserProfile, loadEnrolledCourses]);
+
   useEffect(() => {
     setActiveTab(defaultTab);
   }, [defaultTab]);
 
-  useEffect(() => {
-    loadEnrolledCourses();
-  }, [loadEnrolledCourses]);
+  const handleSaveProfile = async () => {
+    if (!userData) return;
+
+    try {
+      const response = await apiClient.updateProfile({
+        name: userData.name,
+        email: userData.email,
+        avatar: userData.avatar,
+      });
+      if (response.success && response.data) {
+        setUserData(response.data);
+        setIsEditing(false);
+      } else {
+        setUserError(response.error || response.message || 'Không thể cập nhật thông tin cá nhân.');
+      }
+    } catch (error) {
+      setUserError(error instanceof Error ? error.message : 'Không thể cập nhật thông tin cá nhân.');
+    }
+  };
+
+  const handleChangePassword = () => {
+    // Placeholder for password change logic (not implemented in API yet)
+    setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  };
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('vi-VN', {
@@ -211,7 +313,6 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
 
   const getTransactionDetails = (transaction: (typeof mockTransactions)[number]) => {
     if (transaction.type === 'consultation') {
-      // Try to extract duration from description or title, with fallback
       const textToSearch = transaction.description || transaction.expertName || '';
       const hourMatch = textToSearch.match(/(\d+)\s*giờ/);
       const duration = hourMatch ? parseInt(hourMatch[1]) : 1;
@@ -222,14 +323,6 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
       };
     }
     return { duration: null, type: 'Khóa học', icon: <BookOpen className="h-4 w-4" /> };
-  };
-
-  const handleSaveProfile = () => {
-    setIsEditing(false);
-  };
-
-  const handleChangePassword = () => {
-    setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
   };
 
   const handleRemoveFromWishlist = (courseId: string) => {
@@ -243,17 +336,6 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
     }
   };
 
-  // const openLearnerPage = (courseId: string) => {
-  //   router.push(`/learner/${courseId}`);
-  //   if (onCourseSelect) {
-  //     onCourseSelect(courseId);
-  //   }
-  // };
-
-  // const handleContinueCourse = (courseId: string) => {
-  //   openLearnerPage(courseId);
-  // };
-
   const handleContinueCourse = (courseId: string) => {
     router.push(`/learner/${courseId}`);
   };
@@ -264,7 +346,6 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
 
   const wishlistedCourses = mockCourses.filter(course => wishlistItems.includes(course.id));
 
-  // Learning stats
   const totalCoursesEnrolled = coursesSummary.totalEnrolled ?? enrolledCourses.length;
   const completedCoursesCount = coursesSummary.completedCourses ?? enrolledCourses.filter(course => course.status === 'completed').length;
   const totalHoursStudied = useMemo(() => {
@@ -276,7 +357,6 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
   }, [enrolledCourses]);
   const certificatesEarned = 0;
 
-  // Schedule stats
   const upcomingAppointments = mockAppointments.filter(app => app.status === 'upcoming').length;
   const completedAppointments = mockAppointments.filter(app => app.status === 'completed').length;
   const totalAppointments = mockAppointments.length;
@@ -315,144 +395,177 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
 
           {/* Profile & Security Tab - Combined */}
           <TabsContent value="profile" className="space-y-6">
-            {/* Profile Information Card */}
-            <Card className="bg-white/90 backdrop-blur-sm border-blue-100">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>Thông tin cá nhân</CardTitle>
-                    <CardDescription>
-                      Cập nhật thông tin tài khoản của bạn
-                    </CardDescription>
-                  </div>
-                  <Button
-                    variant="outline"
-                    onClick={() => isEditing ? handleSaveProfile() : setIsEditing(true)}
-                    className="border-blue-300 text-blue-700 hover:bg-blue-50"
-                  >
-                    <Edit3 className="h-4 w-4 mr-2" />
-                    {isEditing ? 'Lưu' : 'Chỉnh sửa'}
+            {userLoading ? (
+              <Card className="bg-white/90 backdrop-blur-sm border-blue-100">
+                <CardContent className="flex justify-center items-center py-12">
+                  <div className="h-10 w-10 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
+                </CardContent>
+              </Card>
+            ) : userError ? (
+              <Card className="bg-white/90 backdrop-blur-sm border-blue-100">
+                <CardContent className="text-center py-12">
+                  <User className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    Không thể tải thông tin cá nhân
+                  </h3>
+                  <p className="text-gray-600 mb-4">{userError}</p>
+                  <Button onClick={loadUserProfile} className="bg-blue-600 hover:bg-blue-700">
+                    Thử lại
                   </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="flex items-center space-x-4">
-                  <Avatar className="h-20 w-20 ring-4 ring-blue-100">
-                    <AvatarImage src={userData.avatar} alt={userData.name} />
-                    <AvatarFallback>{userData.name.charAt(0)}</AvatarFallback>
-                  </Avatar>
-                  {isEditing && (
-                    <Button variant="outline" size="sm" className="border-blue-300 text-blue-700 hover:bg-blue-50">
-                      Thay đổi ảnh
+                </CardContent>
+              </Card>
+            ) : userData ? (
+              <>
+                {/* Profile Information Card */}
+                <Card className="bg-white/90 backdrop-blur-sm border-blue-100">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle>Thông tin cá nhân</CardTitle>
+                        <CardDescription>
+                          Cập nhật thông tin tài khoản của bạn
+                        </CardDescription>
+                      </div>
+                      <Button
+                        variant="outline"
+                        onClick={() => isEditing ? handleSaveProfile() : setIsEditing(true)}
+                        className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                      >
+                        <Edit3 className="h-4 w-4 mr-2" />
+                        {isEditing ? 'Lưu' : 'Chỉnh sửa'}
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="flex items-center space-x-4">
+                      <Avatar className="h-20 w-20 ring-4 ring-blue-100">
+                        <AvatarImage src={userData.avatar} alt={userData.name} />
+                        <AvatarFallback>{userData.name.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                      {isEditing && (
+                        <Button variant="outline" size="sm" className="border-blue-300 text-blue-700 hover:bg-blue-50">
+                          Thay đổi ảnh
+                        </Button>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="name">Họ và tên</Label>
+                        <Input
+                          id="name"
+                          value={userData.name}
+                          onChange={(e) => setUserData({ ...userData, name: e.target.value })}
+                          disabled={!isEditing}
+                          className="border-blue-200 focus:border-blue-400"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="email">Email</Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          value={userData.email}
+                          onChange={(e) => setUserData({ ...userData, email: e.target.value })}
+                          disabled={!isEditing}
+                          className="border-blue-200 focus:border-blue-400"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Ngày tham gia</Label>
+                      <Input
+                        value={formatDate(userData.createdAt)}
+                        disabled
+                        className="bg-blue-50/50"
+                      />
+                    </div>
+
+                    {isEditing && (
+                      <div className="flex space-x-2">
+                        <Button onClick={handleSaveProfile} className="bg-blue-600 hover:bg-blue-700">
+                          Lưu thay đổi
+                        </Button>
+                        <Button variant="outline" onClick={() => setIsEditing(false)} className="border-blue-300 text-blue-700 hover:bg-blue-50">
+                          Hủy
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Password Change Card */}
+                <Card className="bg-white/90 backdrop-blur-sm border-blue-100">
+                  <CardHeader>
+                    <div className="flex items-center space-x-2">
+                      <Lock className="h-5 w-5 text-blue-600" />
+                      <div>
+                        <CardTitle>Đổi mật khẩu</CardTitle>
+                        <CardDescription>
+                          Cập nhật mật khẩu để bảo mật tài khoản
+                        </CardDescription>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="current-password">Mật khẩu hiện tại</Label>
+                      <Input
+                        id="current-password"
+                        type="password"
+                        value={passwordData.currentPassword}
+                        onChange={(e) => setPasswordData({
+                          ...passwordData,
+                          currentPassword: e.target.value
+                        })}
+                        className="border-blue-200 focus:border-blue-400"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="new-password">Mật khẩu mới</Label>
+                      <Input
+                        id="new-password"
+                        type="password"
+                        value={passwordData.newPassword}
+                        onChange={(e) => setPasswordData({
+                          ...passwordData,
+                          newPassword: e.target.value
+                        })}
+                        className="border-blue-200 focus:border-blue-400"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="confirm-password">Xác nhận mật khẩu mới</Label>
+                      <Input
+                        id="confirm-password"
+                        type="password"
+                        value={passwordData.confirmPassword}
+                        onChange={(e) => setPasswordData({
+                          ...passwordData,
+                          confirmPassword: e.target.value
+                        })}
+                        className="border-blue-200 focus:border-blue-400"
+                      />
+                    </div>
+                    <Button onClick={handleChangePassword} className="bg-blue-600 hover:bg-blue-700">
+                      <Lock className="h-4 w-4 mr-2" />
+                      Đổi mật khẩu
                     </Button>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Họ và tên</Label>
-                    <Input
-                      id="name"
-                      value={userData.name}
-                      onChange={(e) => setUserData({ ...userData, name: e.target.value })}
-                      disabled={!isEditing}
-                      className="border-blue-200 focus:border-blue-400"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={userData.email}
-                      onChange={(e) => setUserData({ ...userData, email: e.target.value })}
-                      disabled={!isEditing}
-                      className="border-blue-200 focus:border-blue-400"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Ngày tham gia</Label>
-                  <Input
-                    value={formatDate(userData.createdAt)}
-                    disabled
-                    className="bg-blue-50/50"
-                  />
-                </div>
-
-                {isEditing && (
-                  <div className="flex space-x-2">
-                    <Button onClick={handleSaveProfile} className="bg-blue-600 hover:bg-blue-700">
-                      Lưu thay đổi
-                    </Button>
-                    <Button variant="outline" onClick={() => setIsEditing(false)} className="border-blue-300 text-blue-700 hover:bg-blue-50">
-                      Hủy
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Password Change Card */}
-            <Card className="bg-white/90 backdrop-blur-sm border-blue-100">
-              <CardHeader>
-                <div className="flex items-center space-x-2">
-                  <Lock className="h-5 w-5 text-blue-600" />
-                  <div>
-                    <CardTitle>Đổi mật khẩu</CardTitle>
-                    <CardDescription>
-                      Cập nhật mật khẩu để bảo mật tài khoản
-                    </CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="current-password">Mật khẩu hiện tại</Label>
-                  <Input
-                    id="current-password"
-                    type="password"
-                    value={passwordData.currentPassword}
-                    onChange={(e) => setPasswordData({
-                      ...passwordData,
-                      currentPassword: e.target.value
-                    })}
-                    className="border-blue-200 focus:border-blue-400"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="new-password">Mật khẩu mới</Label>
-                  <Input
-                    id="new-password"
-                    type="password"
-                    value={passwordData.newPassword}
-                    onChange={(e) => setPasswordData({
-                      ...passwordData,
-                      newPassword: e.target.value
-                    })}
-                    className="border-blue-200 focus:border-blue-400"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="confirm-password">Xác nhận mật khẩu mới</Label>
-                  <Input
-                    id="confirm-password"
-                    type="password"
-                    value={passwordData.confirmPassword}
-                    onChange={(e) => setPasswordData({
-                      ...passwordData,
-                      confirmPassword: e.target.value
-                    })}
-                    className="border-blue-200 focus:border-blue-400"
-                  />
-                </div>
-                <Button onClick={handleChangePassword} className="bg-blue-600 hover:bg-blue-700">
-                  <Lock className="h-4 w-4 mr-2" />
-                  Đổi mật khẩu
-                </Button>
-              </CardContent>
-            </Card>
+                  </CardContent>
+                </Card>
+              </>
+            ) : (
+              <Card className="bg-white/90 backdrop-blur-sm border-blue-100">
+                <CardContent className="text-center py-12">
+                  <User className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    Không có thông tin cá nhân
+                  </h3>
+                  <p className="text-gray-600 mb-4">Vui lòng đăng nhập để xem thông tin cá nhân.</p>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* My Courses Tab */}
@@ -612,7 +725,7 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
                                       <Button
                                         size="sm"
                                         variant="outline"
-                                        onClick={() => openLearnerPage(course._id)}
+                                        onClick={() => handleContinueCourse(course._id)}
                                         className="border-green-300 text-green-700 hover:bg-green-50"
                                       >
                                         <CheckCircle className="h-4 w-4 mr-2" />

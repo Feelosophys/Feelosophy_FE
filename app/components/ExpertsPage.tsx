@@ -1,37 +1,122 @@
-"use client"
+"use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from './ui/dialog';
-import { Star, Users, Search, Clock, Calendar, Award, MapPin, CheckCircle, Eye } from 'lucide-react';
-import { mockExperts, type Expert } from '../data/mockData';
+import { Star, Users, Search, Clock, Calendar, Award, CheckCircle, Eye } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { CalendarBooking } from './CalendarBooking';
+import { apiClient } from '../../lib/api';
+
+interface Teacher {
+  _id: string;
+  user: {
+    _id: string;
+    name: string;
+    email: string;
+    bio: string;
+    joinedDate: string | null;
+    id: string;
+  };
+  specialization: string[];
+  experience: string;
+  rating: number;
+  reviews: number;
+  price: number;
+  bio: string;
+  availability: string[];
+  expertise: any[];
+  createdAt: string;
+  updatedAt: string;
+  __v: number;
+}
+
+interface Expert {
+  id: string; // teacher._id
+  userId: string; // teacher.user.id
+  name: string;
+  title: string;
+  image: string;
+  rating: number;
+  reviews: number;
+  specialization: string[];
+  experience: string;
+  price: number;
+  bio: string;
+  availability: { time: string; available: boolean }[];
+}
 
 interface ExpertsPageProps {
   onExpertSelect?: (expertId: string) => void;
 }
 
 export function ExpertsPage({ onExpertSelect }: ExpertsPageProps) {
+  const [experts, setExperts] = useState<Expert[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedExpert, setSelectedExpert] = useState<Expert | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [specializationFilter, setSpecializationFilter] = useState('all');
 
-  const filteredExperts = mockExperts.filter(expert => {
-    const matchesSearch = expert.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         expert.bio.toLowerCase().includes(searchTerm.toLowerCase());
+  // Hàm ánh xạ dữ liệu API sang Expert
+  const mapTeacherToExpert = (teacher: Teacher): Expert => ({
+    id: teacher._id,
+    userId: teacher.user.id || teacher.user._id,
+    name: teacher.user.name,
+    title: teacher.specialization[0] || 'Chuyên gia tâm lý',
+    image: 'https://i.pinimg.com/564x/c6/12/ac/c612ac447dff18c445897fb2130cc3fa.jpg',
+    rating: teacher.rating,
+    reviews: teacher.reviews,
+    specialization: teacher.specialization,
+    experience: teacher.experience,
+    price: teacher.price,
+    bio: teacher.bio || teacher.user.bio || 'Không có mô tả',
+    availability: teacher.availability.map(time => ({
+      time,
+      available: true,
+    })),
+  });
+
+  // Fetch experts on component mount
+  useEffect(() => {
+    const fetchExperts = async () => {
+      try {
+        setLoading(true);
+        const response = await apiClient.getExperts();
+        if (response.success && response.data) {
+          const mappedExperts = (response.data as Teacher[]).map(mapTeacherToExpert);
+          setExperts(mappedExperts);
+        } else {
+          setError(response.error || 'Không thể tải danh sách chuyên gia');
+        }
+      } catch {
+        setError('Đã xảy ra lỗi khi tải danh sách chuyên gia');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchExperts();
+  }, []);
+
+  // Filter experts based on search term and specialization
+  const filteredExperts = experts.filter(expert => {
+    const matchesSearch = 
+      (expert.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (expert.bio || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesSpecialization = specializationFilter === 'all' || 
                                  expert.specialization.includes(specializationFilter);
     
     return matchesSearch && matchesSpecialization;
   });
 
+  // Get unique specializations for filter dropdown
   const allSpecializations = Array.from(
-    new Set(mockExperts.flatMap(expert => expert.specialization))
+    new Set(experts.flatMap(expert => expert.specialization))
   );
 
   const formatPrice = (price: number) => {
@@ -42,21 +127,48 @@ export function ExpertsPage({ onExpertSelect }: ExpertsPageProps) {
   };
 
   const getExpertStatus = (expert: Expert) => {
-    // Simulate online status based on availability
     const hasAvailableSlots = expert.availability.some(slot => slot.available);
     return hasAvailableSlots ? 'online' : 'offline';
   };
 
   const handleExpertClick = (expertId: string) => {
     if (onExpertSelect) {
-      onExpertSelect(expertId);
+      onExpertSelect(expertId); // Truyền expert.id (teacher._id)
     }
   };
 
   const handleBookingClick = (expert: Expert, e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent expert card click
+    e.stopPropagation();
     setSelectedExpert(expert);
   };
+
+  // Render loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-blue-50/30 to-white py-8">
+        <div className="max-w-7xl mx-auto px-4 text-center">
+          <p className="text-gray-600">Đang tải danh sách chuyên gia...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Render error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-blue-50/30 to-white py-8">
+        <div className="max-w-7xl mx-auto px-4 text-center">
+          <p className="text-red-600">{error}</p>
+          <Button
+            onClick={() => window.location.reload()}
+            className="mt-4 bg-blue-600 hover:bg-blue-700"
+          >
+            Thử lại
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50/30 to-white py-8">
@@ -76,7 +188,7 @@ export function ExpertsPage({ onExpertSelect }: ExpertsPageProps) {
               <div className="flex items-center space-x-2">
                 <Users className="h-5 w-5 text-blue-600" />
                 <div>
-                  <div className="font-bold text-lg">{mockExperts.length}</div>
+                  <div className="font-bold text-lg">{experts.length}</div>
                   <div className="text-sm text-gray-600">Chuyên gia</div>
                 </div>
               </div>
@@ -88,7 +200,7 @@ export function ExpertsPage({ onExpertSelect }: ExpertsPageProps) {
                 <CheckCircle className="h-5 w-5 text-green-600" />
                 <div>
                   <div className="font-bold text-lg">
-                    {mockExperts.filter(expert => getExpertStatus(expert) === 'online').length}
+                    {experts.filter(expert => getExpertStatus(expert) === 'online').length}
                   </div>
                   <div className="text-sm text-gray-600">Đang hoạt động</div>
                 </div>
@@ -101,7 +213,7 @@ export function ExpertsPage({ onExpertSelect }: ExpertsPageProps) {
                 <Star className="h-5 w-5 text-yellow-500" />
                 <div>
                   <div className="font-bold text-lg">
-                    {(mockExperts.reduce((sum, expert) => sum + expert.rating, 0) / mockExperts.length).toFixed(1)}
+                    {(experts.reduce((sum, expert) => sum + expert.rating, 0) / (experts.length || 1)).toFixed(1)}
                   </div>
                   <div className="text-sm text-gray-600">Đánh giá TB</div>
                 </div>
@@ -165,7 +277,7 @@ export function ExpertsPage({ onExpertSelect }: ExpertsPageProps) {
               <Card 
                 key={expert.id} 
                 className="overflow-hidden hover:shadow-xl transition-all duration-300 bg-white/90 backdrop-blur-sm border-blue-100 hover:border-blue-200 group cursor-pointer"
-                onClick={() => handleExpertClick(expert.id)}
+                onClick={() => handleExpertClick(expert.userId)}
               >
                 <CardHeader className="text-center relative">
                   <div className="mx-auto mb-4 relative">
@@ -207,7 +319,6 @@ export function ExpertsPage({ onExpertSelect }: ExpertsPageProps) {
                 </CardHeader>
                 
                 <CardContent className="space-y-4">
-                  {/* Specializations */}
                   <div>
                     <h4 className="font-medium mb-2 text-gray-800 flex items-center space-x-1">
                       <Award className="h-4 w-4 text-blue-600" />
@@ -222,25 +333,22 @@ export function ExpertsPage({ onExpertSelect }: ExpertsPageProps) {
                     </div>
                   </div>
 
-                  {/* Experience and Price */}
                   <div className="flex items-center justify-between text-sm text-gray-600 bg-blue-50/50 rounded-lg p-3">
                     <div className="flex items-center space-x-1">
                       <Clock className="h-4 w-4 text-blue-600" />
-                      <span>{expert.experience} năm KN</span>
+                      <span>{expert.experience}</span>
                     </div>
                     <div className="text-primary font-bold text-lg">
                       {formatPrice(expert.price)}/giờ
                     </div>
                   </div>
 
-                  {/* Bio */}
                   <div>
                     <p className="text-sm text-gray-600 line-clamp-3 leading-relaxed">
                       {expert.bio}
                     </p>
                   </div>
 
-                  {/* Availability Preview */}
                   <div className="bg-gray-50 rounded-lg p-3">
                     <h5 className="text-xs font-medium text-gray-700 mb-2 flex items-center space-x-1">
                       <Calendar className="h-3 w-3" />
@@ -267,14 +375,13 @@ export function ExpertsPage({ onExpertSelect }: ExpertsPageProps) {
                     </div>
                   </div>
 
-                  {/* Action Buttons */}
                   <div className="grid grid-cols-2 gap-2">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleExpertClick(expert.id);
+                        handleExpertClick(expert.userId);
                       }}
                       className="border-blue-300 text-blue-700 hover:bg-blue-50"
                     >
@@ -310,7 +417,6 @@ export function ExpertsPage({ onExpertSelect }: ExpertsPageProps) {
         )}
       </div>
 
-      {/* Calendar Booking Dialog */}
       <Dialog open={!!selectedExpert} onOpenChange={() => setSelectedExpert(null)}>
         <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogTitle className="sr-only">
