@@ -267,3 +267,144 @@ export interface CourseAPIResponse {
     updatedAt: string;
     courseImg: string;
 }
+
+export interface UserCourseInstructorInfo {
+    _id: string;
+    name: string;
+    avatar?: string | null;
+}
+
+export interface UserCourseEnrollment {
+    _id: string;
+    enrolledAt: string;
+    updatedAt?: string;
+    status: 'enrolled' | 'completed';
+    viaOrganization?: boolean;
+    paymentId?: string | null;
+    course: {
+        _id: string;
+        title: string;
+        description?: string;
+        price?: number;
+        originalPrice?: number;
+        rating?: number;
+        category?: string;
+        ageRange?: string;
+        courseType?: string;
+        totalHours?: number;
+        courseDuration?: string;
+        students?: number;
+        courseImg?: string | null;
+        isPublished?: boolean;
+        createdAt?: string;
+        updatedAt?: string;
+        instructorInfo: UserCourseInstructorInfo | null;
+        totalLessons: number;
+    };
+    totalLessons: number;
+    completedLessons: number;
+    progressPercentage: number;
+    enrollmentDuration: number;
+    lastAccessed?: string | Date | null;
+}
+
+export interface UserCoursesPagination {
+    currentPage: number;
+    totalPages: number;
+    totalCount: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+    limit: number;
+}
+
+export interface UserCoursesSummary {
+    totalEnrolled: number;
+    completedCourses: number;
+    activeCourses: number;
+}
+
+export interface UserCoursesResponse {
+    courses: UserCourseEnrollment[];
+    pagination: UserCoursesPagination;
+    summary: UserCoursesSummary;
+}
+
+export interface CourseLearningVideo {
+    _id: string;
+    title: string;
+    url: string;
+    duration?: number;
+}
+
+export interface CourseLearningDocument {
+    _id: string;
+    name: string;
+    fileUrl: string;
+}
+
+export interface CourseLearningModule {
+    _id: string;
+    title: string;
+    order: number;
+    videos: CourseLearningVideo[];
+    documents: CourseLearningDocument[];
+}
+
+export interface CourseLearningProgress {
+    completedLessons: number;
+    totalLessons: number;
+    percentage: number;
+    lastViewedLessonId: string | null;
+}
+
+export interface CourseLearningEnrollment {
+    _id: string;
+    status: 'enrolled' | 'completed';
+    enrolledAt: string;
+    updatedAt?: string;
+    viaOrganization?: boolean;
+    payment?: {
+        _id: string;
+        status: string;
+        amount?: number;
+        method?: string;
+        createdAt?: string;
+        updatedAt?: string;
+    } | null;
+}
+
+export interface CourseLearningCourse {
+    _id: string;
+    title: string;
+    description: string;
+    category?: string;
+    courseImg?: string;
+    rating?: number;
+    totalHours?: number;
+    courseDuration?: string;
+    totalLessons: number;
+    totalVideos: number;
+    instructor: {
+        _id: string;
+        name: string;
+        email?: string;
+        avatar?: string;
+        bio?: string;
+        title?: string;
+    } | null;
+    stats: {
+        totalEnrollments: number;
+        totalLessons: number;
+        totalVideos?: number;
+        totalDocuments?: number;
+        createdAt?: string;
+        lastUpdated?: string;
+    };
+}
+
+export interface CourseLearningContent {
+    course: CourseLearningCourse;
+    enrollment: CourseLearningEnrollment;
+    progress: CourseLearningProgress;
+    curriculum: CourseLearningModule[];
+}

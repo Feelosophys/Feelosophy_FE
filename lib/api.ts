@@ -1,5 +1,11 @@
-import axios from 'axios';
-import { User } from './types';
+import {
+  User,
+  UserCoursesResponse,
+  CourseLearningContent,
+  CreateForumPostData,
+  CreateForumCommentData,
+  ForumReactionData,
+} from './types';
 
 // API Base Configuration
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
@@ -16,6 +22,12 @@ interface ApiResponse<T = unknown> {
   message?: string;
   error?: string;
   status?: number;
+}
+
+interface AuthTokensResponse {
+  accessToken: string;
+  refreshToken: string;
+  user: User;
 }
 
 // API Client Class
@@ -55,18 +67,22 @@ export class ApiClient {
 
       const response = await fetch(url, config);
       const contentType = response.headers.get('content-type');
-      
-      let payload: any = {};
 
-      if (contentType && contentType.includes('application/json')) {
-        payload = await response.json();
-      } else {
-        const text = await response.text();
-        payload = text ? { message: text } : {};
-      }
+      const payload: unknown = contentType && contentType.includes('application/json')
+        ? await response.json()
+        : await response.text();
 
-      const message = typeof payload.message === 'string' ? payload.message : undefined;
-      const resolvedData = payload.data !== undefined ? payload.data : (payload as unknown as T | undefined);
+      const message =
+        typeof payload === 'object' && payload !== null && 'message' in payload && typeof (payload as { message: unknown }).message === 'string'
+          ? (payload as { message: string }).message
+          : typeof payload === 'string'
+            ? payload
+            : undefined;
+
+      const resolvedData: T | undefined =
+        typeof payload === 'object' && payload !== null && 'data' in payload
+          ? (payload as { data: T }).data
+          : (payload as T | undefined);
 
       if (response.ok) {
         return {
@@ -95,11 +111,11 @@ export class ApiClient {
 
   // Authentication methods
   async login(credentials: { email: string; password: string }) {
-    return this.request<{ accessToken: string; refreshToken: string; user: any }>('/auth/login', 'POST', credentials);
+    return this.request<AuthTokensResponse>('/auth/login', 'POST', credentials);
   }
 
   async register(userData: { email: string; password: string; name: string }) {
-    return this.request<{ accessToken: string; refreshToken: string; user: any }>('/auth/register', 'POST', userData);
+    return this.request<AuthTokensResponse>('/auth/register', 'POST', userData);
   }
 
   // Token management
@@ -109,7 +125,7 @@ export class ApiClient {
       localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, refreshToken);
     }
   }
-  
+
   setAuthTokens(accessToken: string, refreshToken: string) {
     this.setTokens(accessToken, refreshToken);
   }
@@ -148,22 +164,36 @@ export class ApiClient {
   async getProfile() {
     return this.authenticatedRequest<User>('/users/profile', 'GET');
   }
-  
+
   async logout() {
     const response = await this.request<void>('/auth/logout', 'POST');
     this.clearTokens();
     return response;
   }
-  
+
   // Course methods
   async getCourse(id: string) {
-    return this.request<any>(`/courses/${id}`, 'GET');
+    return this.request<unknown>(`/courses/${id}`, 'GET');
   }
-  
+
   async getCourses() {
-    return this.request<any[]>('/courses', 'GET');
+    return this.request<unknown[]>('/courses', 'GET');
   }
-  
+
+  async getMyCourses(params?: {
+    page?: number;
+    limit?: number;
+    status?: 'enrolled' | 'completed' | 'all';
+    sortBy?: 'enrolledAt' | 'title' | 'createdAt';
+    sortOrder?: 'asc' | 'desc';
+  }) {
+    return this.authenticatedRequest<UserCoursesResponse>('/courses/my-courses', 'GET', params);
+  }
+
+  async getCourseLearningContent(courseId: string) {
+    return this.authenticatedRequest<CourseLearningContent>(`/courses/${courseId}/learn`, 'GET');
+  }
+
   async getAllCourses(params?: {
     page?: number;
     limit?: number;
@@ -176,7 +206,7 @@ export class ApiClient {
     featured?: boolean;
   }) {
     return this.request<{
-      courses: any[];
+  courses: unknown[];
       pagination: {
         currentPage: number;
         totalPages: number;
@@ -184,7 +214,7 @@ export class ApiClient {
       }
     }>('/courses', 'GET', params);
   }
-  
+
   async getAvailableCategories() {
     return this.request<{
       categories: {
@@ -194,23 +224,44 @@ export class ApiClient {
       }[]
     }>('/courses/categories', 'GET');
   }
-  
+
   // Expert methods
   async getExpert(id: string) {
-    return this.request<any>(`/experts/${id}`, 'GET');
+    return this.request<unknown>(`/experts/${id}`, 'GET');
   }
-  
+
   async getExperts() {
-    return this.request<any[]>('/experts', 'GET');
+    return this.request<unknown[]>('/experts', 'GET');
   }
-  
+
   // Blog methods
   async getBlogPost(id: string) {
-    return this.request<any>(`/blogs/${id}`, 'GET');
+    return this.request<unknown>(`/blogs/${id}`, 'GET');
   }
-  
+
   async getBlogPosts() {
-    return this.request<any>('/blogs', 'GET');
+    return this.request<unknown>('/blogs', 'GET');
+  }
+
+  // Forum methods
+  async getForumPosts() {
+    return this.authenticatedRequest<unknown>('/forum', 'GET');
+  }
+
+  async getForumPost(postId: string) {
+    return this.authenticatedRequest<unknown>(`/forum/${postId}`, 'GET');
+  }
+
+  async createForumPost(data: CreateForumPostData) {
+    return this.authenticatedRequest<unknown>('/forum', 'POST', data);
+  }
+
+  async addForumComment(postId: string, data: CreateForumCommentData) {
+    return this.authenticatedRequest<unknown>(`/forum/${postId}/comments`, 'POST', data);
+  }
+
+  async addForumReaction(postId: string, data: ForumReactionData) {
+    return this.authenticatedRequest<unknown>(`/forum/${postId}/reactions`, 'POST', data);
   }
 
   // Payment methods
@@ -228,7 +279,7 @@ export class ApiClient {
     return this.request<{
       orderId: string;
       status: string;
-      paymentData: any;
+      paymentData: Record<string, unknown>;
     }>(`/payments/check/${orderId}`, 'GET');
   }
 }

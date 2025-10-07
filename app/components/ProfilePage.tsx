@@ -1,6 +1,7 @@
 "use client"
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
@@ -8,68 +9,25 @@ import { Label } from './ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Badge } from './ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
-import { Separator } from './ui/separator';
 import { Progress } from './ui/progress';
-import { User, History, Lock, CreditCard, BookOpen, Users, Calendar, Edit3, Clock, Heart, Star, ShoppingCart, Trash2, Play, CheckCircle, Award, TrendingUp, BarChart3, MapPin, Video } from 'lucide-react';
+import { User, History, Lock, CreditCard, BookOpen, Users, Calendar, Edit3, Clock, Heart, Star, ShoppingCart, Trash2, Play, CheckCircle, Award, MapPin, Video } from 'lucide-react';
 import { mockUser, mockTransactions, mockCourses, mockWishlist, toggleWishlist } from '../data/mockData';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import { useAuthContext } from '@/lib/auth-context';
+import { apiClient } from '@/lib/api';
+import type { UserCourseEnrollment, UserCoursesSummary } from '@/lib/types';
+
+const DEFAULT_COURSE_SUMMARY: UserCoursesSummary = {
+  totalEnrolled: 0,
+  completedCourses: 0,
+  activeCourses: 0
+};
+
 
 interface ProfilePageProps {
   defaultTab?: string;
   onCourseSelect?: (courseId: string) => void;
 }
-
-// Mock enrolled courses data
-const mockEnrolledCourses = [
-  {
-    id: '1',
-    title: 'Tâm lý học Ứng dụng trong Đời sống',
-    instructor: 'Dr. Nguyễn Văn A',
-    image: 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80',
-    category: 'Tâm lý ứng dụng',
-    progress: 75,
-    totalLessons: 20,
-    completedLessons: 15,
-    totalHours: 40,
-    lastAccessed: '2024-01-15',
-    status: 'in_progress',
-    rating: 4.8,
-    certificateEarned: false,
-    enrolledDate: '2024-01-01'
-  },
-  {
-    id: '2',
-    title: 'Quản lý Stress và Anxiety',
-    instructor: 'Dr. Trần Thị B',
-    image: 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80',
-    category: 'Sức khỏe tinh thần',
-    progress: 100,
-    totalLessons: 15,
-    completedLessons: 15,
-    totalHours: 30,
-    lastAccessed: '2024-01-20',
-    status: 'completed',
-    rating: 4.9,
-    certificateEarned: true,
-    enrolledDate: '2023-12-15'
-  },
-  {
-    id: '3',
-    title: 'Kỹ năng Giao tiếp Hiệu quả',
-    instructor: 'Dr. Lê Minh C',
-    image: 'https://images.unsplash.com/photo-1551818255-e6e10975bc17?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80',
-    category: 'Kỹ năng xã hội',
-    progress: 30,
-    totalLessons: 25,
-    completedLessons: 7,
-    totalHours: 50,
-    lastAccessed: '2024-01-10',
-    status: 'in_progress',
-    rating: 4.7,
-    certificateEarned: false,
-    enrolledDate: '2024-01-05'
-  }
-];
 
 // Mock appointments/schedule data
 const mockAppointments = [
@@ -126,6 +84,8 @@ const mockAppointments = [
 ];
 
 export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfilePageProps) {
+  const { isAuthenticated } = useAuthContext();
+  const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [userData, setUserData] = useState(mockUser);
   const [passwordData, setPasswordData] = useState({
@@ -135,11 +95,48 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
   });
   const [wishlistItems, setWishlistItems] = useState(mockWishlist);
   const [activeTab, setActiveTab] = useState(defaultTab);
+  const [enrolledCourses, setEnrolledCourses] = useState<UserCourseEnrollment[]>([]);
+  const [coursesSummary, setCoursesSummary] = useState<UserCoursesSummary>({ ...DEFAULT_COURSE_SUMMARY });
+  const [coursesLoading, setCoursesLoading] = useState(false);
+  const [coursesError, setCoursesError] = useState<string | null>(null);
+
+  const loadEnrolledCourses = useCallback(async () => {
+    if (!isAuthenticated) {
+      setEnrolledCourses([]);
+      setCoursesSummary({ ...DEFAULT_COURSE_SUMMARY });
+      return;
+    }
+
+    setCoursesLoading(true);
+    setCoursesError(null);
+
+    try {
+      const response = await apiClient.getMyCourses({ status: 'all', limit: 50, sortBy: 'enrolledAt', sortOrder: 'desc' });
+      if (response.success && response.data) {
+        setEnrolledCourses(response.data.courses || []);
+        setCoursesSummary(response.data.summary || { ...DEFAULT_COURSE_SUMMARY });
+      } else {
+        setEnrolledCourses([]);
+        setCoursesSummary({ ...DEFAULT_COURSE_SUMMARY });
+        setCoursesError(response.error || response.message || 'Không thể tải danh sách khóa học.');
+      }
+    } catch (error) {
+      setEnrolledCourses([]);
+      setCoursesSummary({ ...DEFAULT_COURSE_SUMMARY });
+      setCoursesError(error instanceof Error ? error.message : 'Không thể tải danh sách khóa học.');
+    } finally {
+      setCoursesLoading(false);
+    }
+  }, [isAuthenticated]);
 
   // Update active tab when defaultTab changes
   useEffect(() => {
     setActiveTab(defaultTab);
   }, [defaultTab]);
+
+  useEffect(() => {
+    loadEnrolledCourses();
+  }, [loadEnrolledCourses]);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('vi-VN', {
@@ -148,22 +145,26 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
     }).format(price);
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('vi-VN');
+  const formatDate = (dateInput: string | Date) => {
+    const dateObj = dateInput instanceof Date ? dateInput : new Date(dateInput);
+    if (Number.isNaN(dateObj.getTime())) {
+      return '--';
+    }
+    return dateObj.toLocaleDateString('vi-VN');
   };
 
   const formatDateTime = (date: string, time: string) => {
     const dateObj = new Date(`${date} ${time}`);
     return {
-      date: dateObj.toLocaleDateString('vi-VN', { 
-        weekday: 'long', 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
+      date: dateObj.toLocaleDateString('vi-VN', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
       }),
-      time: dateObj.toLocaleTimeString('vi-VN', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
+      time: dateObj.toLocaleTimeString('vi-VN', {
+        hour: '2-digit',
+        minute: '2-digit'
       })
     };
   };
@@ -198,6 +199,7 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
     switch (status) {
       case 'completed':
         return <Badge className="bg-green-100 text-green-700 border-green-200">Hoàn thành</Badge>;
+      case 'enrolled':
       case 'in_progress':
         return <Badge className="bg-blue-100 text-blue-700 border-blue-200">Đang học</Badge>;
       case 'not_started':
@@ -207,11 +209,7 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
     }
   };
 
-  const getTransactionIcon = (type: string) => {
-    return type === 'course' ? <BookOpen className="h-4 w-4" /> : <Users className="h-4 w-4" />;
-  };
-
-  const getTransactionDetails = (transaction: any) => {
+  const getTransactionDetails = (transaction: (typeof mockTransactions)[number]) => {
     if (transaction.type === 'consultation') {
       // Try to extract duration from description or title, with fallback
       const textToSearch = transaction.description || transaction.expertName || '';
@@ -223,11 +221,7 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
         icon: <Users className="h-4 w-4" />
       };
     }
-    return {
-      duration: null,
-      type: 'Khóa học',
-      icon: <BookOpen className="h-4 w-4" />
-    };
+    return { duration: null, type: 'Khóa học', icon: <BookOpen className="h-4 w-4" /> };
   };
 
   const handleSaveProfile = () => {
@@ -249,10 +243,19 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
     }
   };
 
+  // const openLearnerPage = (courseId: string) => {
+  //   router.push(`/learner/${courseId}`);
+  //   if (onCourseSelect) {
+  //     onCourseSelect(courseId);
+  //   }
+  // };
+
+  // const handleContinueCourse = (courseId: string) => {
+  //   openLearnerPage(courseId);
+  // };
+
   const handleContinueCourse = (courseId: string) => {
-    if (onCourseSelect) {
-      onCourseSelect(courseId);
-    }
+    router.push(`/learner/${courseId}`);
   };
 
   const handleJoinMeeting = (meetingLink: string) => {
@@ -262,13 +265,16 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
   const wishlistedCourses = mockCourses.filter(course => wishlistItems.includes(course.id));
 
   // Learning stats
-  const totalCoursesEnrolled = mockEnrolledCourses.length;
-  const completedCourses = mockEnrolledCourses.filter(course => course.status === 'completed').length;
-  const inProgressCourses = mockEnrolledCourses.filter(course => course.status === 'in_progress').length;
-  const totalHoursStudied = mockEnrolledCourses.reduce((sum, course) => 
-    sum + Math.round((course.progress / 100) * course.totalHours), 0
-  );
-  const certificatesEarned = mockEnrolledCourses.filter(course => course.certificateEarned).length;
+  const totalCoursesEnrolled = coursesSummary.totalEnrolled ?? enrolledCourses.length;
+  const completedCoursesCount = coursesSummary.completedCourses ?? enrolledCourses.filter(course => course.status === 'completed').length;
+  const totalHoursStudied = useMemo(() => {
+    return enrolledCourses.reduce((sum, enrollment) => {
+      const courseHours = enrollment.course.totalHours || 0;
+      const progressRatio = (enrollment.progressPercentage || 0) / 100;
+      return sum + Math.round(courseHours * progressRatio);
+    }, 0);
+  }, [enrolledCourses]);
+  const certificatesEarned = 0;
 
   // Schedule stats
   const upcomingAppointments = mockAppointments.filter(app => app.status === 'upcoming').length;
@@ -348,7 +354,7 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
                     <Input
                       id="name"
                       value={userData.name}
-                      onChange={(e) => setUserData({...userData, name: e.target.value})}
+                      onChange={(e) => setUserData({ ...userData, name: e.target.value })}
                       disabled={!isEditing}
                       className="border-blue-200 focus:border-blue-400"
                     />
@@ -359,7 +365,7 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
                       id="email"
                       type="email"
                       value={userData.email}
-                      onChange={(e) => setUserData({...userData, email: e.target.value})}
+                      onChange={(e) => setUserData({ ...userData, email: e.target.value })}
                       disabled={!isEditing}
                       className="border-blue-200 focus:border-blue-400"
                     />
@@ -469,7 +475,7 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
                   <div className="flex items-center space-x-2">
                     <CheckCircle className="h-5 w-5 text-green-600" />
                     <div>
-                      <div className="text-2xl font-bold text-green-700">{completedCourses}</div>
+                      <div className="text-2xl font-bold text-green-700">{completedCoursesCount}</div>
                       <div className="text-sm text-green-600">Hoàn thành</div>
                     </div>
                   </div>
@@ -508,104 +514,128 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {mockEnrolledCourses.length > 0 ? (
+                {coursesLoading ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+                    <div className="h-10 w-10 rounded-full border-2 border-blue-500 border-t-transparent animate-spin mb-4" />
+                    <p>Đang tải khóa học của bạn...</p>
+                  </div>
+                ) : coursesError ? (
+                  <div className="text-center py-12">
+                    <BookOpen className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                      Không thể tải danh sách khóa học
+                    </h3>
+                    <p className="text-gray-600 mb-4 max-w-md mx-auto">
+                      {coursesError}
+                    </p>
+                    <Button onClick={loadEnrolledCourses} className="bg-blue-600 hover:bg-blue-700">
+                      Thử lại
+                    </Button>
+                  </div>
+                ) : enrolledCourses.length > 0 ? (
                   <div className="space-y-4">
-                    {mockEnrolledCourses.map((course) => (
-                      <Card key={course.id} className="overflow-hidden hover:shadow-lg transition-all duration-300 bg-white/90 backdrop-blur-sm border-blue-100 hover:border-blue-200 group">
-                        <div className="flex flex-col md:flex-row">
-                          <div className="relative md:w-48 h-32 md:h-auto overflow-hidden flex-shrink-0">
-                            <ImageWithFallback
-                              src={course.image}
-                              alt={course.title}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            />
-                            <div className="absolute top-2 left-2">
-                              <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-xs">
-                                {course.category}
-                              </Badge>
+                    {enrolledCourses.map((enrollment) => {
+                      const course = enrollment.course;
+                      const progress = Math.round(enrollment.progressPercentage || 0);
+                      const completedLessons = enrollment.completedLessons ?? (progress >= 100 ? enrollment.totalLessons : Math.round((progress / 100) * enrollment.totalLessons));
+                      const lastAccessed = enrollment.lastAccessed ? formatDate(enrollment.lastAccessed) : formatDate(enrollment.enrolledAt);
+                      const fallbackImage = 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=600&q=80';
+                      const courseImage = course.courseImg || fallbackImage;
+                      const instructorName = course.instructorInfo?.name || 'Chuyên gia Feelosophy';
+                      const totalHours = course.totalHours || 0;
+                      const rating = course.rating || 0;
+                      const status = enrollment.status;
+                      return (
+                        <Card key={enrollment._id} className="overflow-hidden hover:shadow-lg transition-all duration-300 bg-white/90 backdrop-blur-sm border-blue-100 hover:border-blue-200 group">
+                          <div className="flex flex-col md:flex-row">
+                            <div className="relative md:w-48 h-32 md:h-auto overflow-hidden flex-shrink-0">
+                              <ImageWithFallback
+                                src={courseImage}
+                                alt={course.title}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              />
+                              <div className="absolute top-2 left-2">
+                                <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-xs">
+                                  {course.category || 'Khóa học'}
+                                </Badge>
+                              </div>
+                              <div className="absolute top-2 right-2">
+                                {getCourseStatusBadge(status)}
+                              </div>
                             </div>
-                            <div className="absolute top-2 right-2">
-                              {getCourseStatusBadge(course.status)}
+
+                            <div className="flex-1 p-4">
+                              <div className="space-y-3">
+                                <div>
+                                  <h3 className="font-semibold text-lg text-gray-900 group-hover:text-blue-600 transition-colors mb-1">
+                                    {course.title}
+                                  </h3>
+                                  <p className="text-blue-600 font-medium text-sm">{instructorName}</p>
+                                </div>
+
+                                <div className="flex items-center justify-between text-sm text-gray-600">
+                                  <div className="flex items-center space-x-4">
+                                    <div className="flex items-center space-x-1">
+                                      <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                                      <span>{rating.toFixed(1)}</span>
+                                    </div>
+                                    <div className="flex items-center space-x-1">
+                                      <BookOpen className="h-3 w-3" />
+                                      <span>{completedLessons}/{enrollment.totalLessons} bài</span>
+                                    </div>
+                                    <div className="flex items-center space-x-1">
+                                      <Clock className="h-3 w-3" />
+                                      <span>{totalHours}h</span>
+                                    </div>
+                                  </div>
+                                  <div className="text-xs text-gray-500">
+                                    Truy cập: {lastAccessed}
+                                  </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between text-sm">
+                                    <span className="text-gray-600">Tiến độ học tập</span>
+                                    <span className="font-medium text-blue-600">{progress}%</span>
+                                  </div>
+                                  <Progress value={progress} className="h-2" />
+                                </div>
+
+                                <div className="flex items-center justify-between pt-2">
+                                  <div className="flex items-center space-x-2">
+                                    <span className="text-xs text-gray-500">
+                                      Đăng ký: {formatDate(enrollment.enrolledAt)}
+                                    </span>
+                                  </div>
+                                  <div className="flex space-x-2">
+                                    {status === 'completed' ? (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => openLearnerPage(course._id)}
+                                        className="border-green-300 text-green-700 hover:bg-green-50"
+                                      >
+                                        <CheckCircle className="h-4 w-4 mr-2" />
+                                        Xem lại
+                                      </Button>
+                                    ) : (
+                                      <Button
+                                        size="sm"
+                                        onClick={() => handleContinueCourse(course._id)}
+                                        className="bg-blue-600 hover:bg-blue-700"
+                                      >
+                                        <Play className="h-4 w-4 mr-2" />
+                                        Tiếp tục học
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
                             </div>
                           </div>
-                          
-                          <div className="flex-1 p-4">
-                            <div className="space-y-3">
-                              <div>
-                                <h3 className="font-semibold text-lg text-gray-900 group-hover:text-blue-600 transition-colors mb-1">
-                                  {course.title}
-                                </h3>
-                                <p className="text-blue-600 font-medium text-sm">{course.instructor}</p>
-                              </div>
-                              
-                              <div className="flex items-center justify-between text-sm text-gray-600">
-                                <div className="flex items-center space-x-4">
-                                  <div className="flex items-center space-x-1">
-                                    <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                                    <span>{course.rating}</span>
-                                  </div>
-                                  <div className="flex items-center space-x-1">
-                                    <BookOpen className="h-3 w-3" />
-                                    <span>{course.completedLessons}/{course.totalLessons} bài</span>
-                                  </div>
-                                  <div className="flex items-center space-x-1">
-                                    <Clock className="h-3 w-3" />
-                                    <span>{course.totalHours}h</span>
-                                  </div>
-                                </div>
-                                <div className="text-xs text-gray-500">
-                                  Truy cập: {formatDate(course.lastAccessed)}
-                                </div>
-                              </div>
-                              
-                              <div className="space-y-2">
-                                <div className="flex items-center justify-between text-sm">
-                                  <span className="text-gray-600">Tiến độ học tập</span>
-                                  <span className="font-medium text-blue-600">{course.progress}%</span>
-                                </div>
-                                <Progress value={course.progress} className="h-2" />
-                              </div>
-                              
-                              <div className="flex items-center justify-between pt-2">
-                                <div className="flex items-center space-x-2">
-                                  {course.certificateEarned && (
-                                    <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200">
-                                      <Award className="h-3 w-3 mr-1" />
-                                      Có chứng chỉ
-                                    </Badge>
-                                  )}
-                                  <span className="text-xs text-gray-500">
-                                    Đăng ký: {formatDate(course.enrolledDate)}
-                                  </span>
-                                </div>
-                                <div className="flex space-x-2">
-                                  {course.status === 'completed' ? (
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => handleCourseClick(course.id)}
-                                      className="border-green-300 text-green-700 hover:bg-green-50"
-                                    >
-                                      <CheckCircle className="h-4 w-4 mr-2" />
-                                      Xem lại
-                                    </Button>
-                                  ) : (
-                                    <Button
-                                      size="sm"
-                                      onClick={() => handleContinueCourse(course.id)}
-                                      className="bg-blue-600 hover:bg-blue-700"
-                                    >
-                                      <Play className="h-4 w-4 mr-2" />
-                                      Tiếp tục học
-                                    </Button>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </Card>
-                    ))}
+                        </Card>
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="text-center py-12">
@@ -616,7 +646,7 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
                     <p className="text-gray-600 mb-4">
                       Bắt đầu hành trình học tập của bạn bằng cách đăng ký khóa học đầu tiên
                     </p>
-                    <Button 
+                    <Button
                       onClick={() => onCourseSelect && onCourseSelect('courses')}
                       className="bg-blue-600 hover:bg-blue-700"
                     >
@@ -711,7 +741,7 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
                                   </div>
                                 </div>
                               </div>
-                              
+
                               <div className="flex flex-col items-end space-y-2">
                                 {getAppointmentStatusBadge(appointment.status)}
                                 {appointment.status === 'upcoming' && appointment.meetingLink && (
@@ -726,7 +756,7 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
                                 )}
                               </div>
                             </div>
-                            
+
                             {appointment.notes && (
                               <div className="mt-3 p-3 bg-blue-50/50 rounded-lg">
                                 <p className="text-sm text-gray-700">
@@ -748,7 +778,7 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
                     <p className="text-gray-600 mb-4">
                       Đặt lịch tư vấn với chuyên gia để bắt đầu hành trình chăm sóc sức khỏe tinh thần
                     </p>
-                    <Button 
+                    <Button
                       onClick={() => onCourseSelect && onCourseSelect('experts')}
                       className="bg-blue-600 hover:bg-blue-700"
                     >
@@ -774,14 +804,14 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
                 {wishlistedCourses.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {wishlistedCourses.map((course) => (
-                      <Card 
-                        key={course.id} 
+                      <Card
+                        key={course.id}
                         className="overflow-hidden hover:shadow-lg transition-all duration-300 bg-white/90 backdrop-blur-sm border-blue-100 hover:border-blue-200 cursor-pointer group"
                         onClick={() => handleCourseClick(course.id)}
                       >
                         <div className="relative overflow-hidden">
                           <ImageWithFallback
-                            src={course.image}
+                            src={course.courseImg}
                             alt={course.title}
                             className="w-full h-32 object-cover group-hover:scale-105 transition-transform duration-300"
                           />
@@ -804,14 +834,14 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
                             </Button>
                           </div>
                         </div>
-                        
+
                         <CardContent className="p-4">
                           <div className="space-y-2">
                             <h3 className="font-medium text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2">
                               {course.title}
                             </h3>
                             <p className="text-sm text-blue-600 font-medium">{course.instructor}</p>
-                            
+
                             <div className="flex items-center space-x-3 text-xs text-gray-600">
                               <div className="flex items-center space-x-1">
                                 <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
@@ -826,12 +856,12 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
                                 <span>{course.students}</span>
                               </div>
                             </div>
-                            
+
                             <div className="flex items-center justify-between pt-2">
                               <div className="text-lg font-bold text-primary">
                                 {formatPrice(course.price)}
                               </div>
-                              <Button 
+                              <Button
                                 size="sm"
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -857,7 +887,7 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
                     <p className="text-gray-600 mb-4">
                       Bắt đầu thêm các khóa học yêu thích vào danh sách để xem sau
                     </p>
-                    <Button 
+                    <Button
                       onClick={() => onCourseSelect && onCourseSelect('courses')}
                       className="bg-blue-600 hover:bg-blue-700"
                     >
@@ -883,7 +913,7 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
                   {mockTransactions.map((transaction) => {
                     const details = getTransactionDetails(transaction);
                     const displayName = transaction.courseName || transaction.expertName || transaction.description;
-                    
+
                     return (
                       <div key={transaction.id} className="flex items-center justify-between p-4 border border-blue-100 rounded-lg bg-white/50 hover:bg-white/80 transition-colors">
                         <div className="flex items-center space-x-4">
