@@ -490,7 +490,7 @@ export function CourseDetailPage({
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Purchase Card */}
-            <Card className="sticky top-4">
+            <Card className="top-4">
               <CardContent className="p-6">
                 <div className="text-center mb-6">
                   <div className="text-3xl font-bold text-blue-600 mb-2">

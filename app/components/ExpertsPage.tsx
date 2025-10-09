@@ -35,7 +35,7 @@ interface Teacher {
   __v: number;
 }
 
-interface Expert {
+export interface Expert {
   id: string; // teacher._id
   userId: string; // teacher.user.id
   name: string;
@@ -47,7 +47,9 @@ interface Expert {
   experience: string;
   price: number;
   bio: string;
-  availability: { time: string; available: boolean }[];
+  availability: {
+    date: any; time: string; available: boolean 
+}[];
 }
 
 interface ExpertsPageProps {
