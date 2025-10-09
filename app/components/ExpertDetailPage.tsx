@@ -1,133 +1,313 @@
 "use client"
 
-import React, { useState } from 'react';
-import { Button } from './ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Badge } from './ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
-import { Separator } from './ui/separator';
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from './ui/dialog';
-import { 
-  ArrowLeft, 
-  Star, 
-  Users, 
-  Clock, 
-  Calendar, 
-  Award, 
-  MapPin, 
-  CheckCircle, 
-  BookOpen,
-  Heart,
-  Share2,
-  MessageSquare,
+import { useState, useEffect } from "react"
+import { Button } from "./ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card"
+import { Badge } from "./ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs"
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
+import { Separator } from "./ui/separator"
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "./ui/dialog"
+import {
+  ArrowLeft,
+  Star,
+  Users,
+  Clock,
+  Calendar,
+  Award,
+  MapPin,
+  CheckCircle,
+  Languages,
+  Shield,
   Video,
   Phone,
   Mail,
-  GraduationCap,
   Building2,
-  Languages,
-  Shield
-} from 'lucide-react';
-import { mockExperts, type Expert } from '../data/mockData';
-import { ImageWithFallback } from './figma/ImageWithFallback';
-import { CalendarBooking } from './CalendarBooking';
+  Heart,
+  Share2,
+  MessageSquare,
+  GraduationCap,
+} from "lucide-react"
+import { CalendarBooking } from "./CalendarBooking"
+import { apiClient } from "../../lib/api"
 
-interface ExpertDetailPageProps {
-  expertId: string;
-  onBack: () => void;
-  currentUser?: any;
-  onShowAuth?: () => void;
+interface User {
+  _id: string
+  name: string
+  email: string
+  bio: string
+  joinedDate: string | null
+  id: string
 }
 
-// Mock reviews data for expert
-const mockExpertReviews = [
-  {
-    id: '1',
-    userName: 'Nguyễn Minh Anh',
-    userAvatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b602?w=150&h=150&fit=crop',
-    rating: 5,
-    comment: 'Dr. Nguyễn rất chuyên nghiệp và tận tâm. Buổi tư vấn đã giúp tôi hiểu rõ hơn về vấn đề của mình và có hướng giải quyết cụ thể.',
-    date: '2024-01-20',
-    consultationType: 'Tư vấn cá nhân',
-    helpful: 12
-  },
-  {
-    id: '2',
-    userName: 'Trần Văn Bình',
-    userAvatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop',
-    rating: 5,
-    comment: 'Chuyên gia rất có kinh nghiệm, lắng nghe và đưa ra lời khuyên thực tế. Tôi cảm thấy thoải mái hơn nhiều sau buổi tư vấn.',
-    date: '2024-01-18',
-    consultationType: 'Tư vấn online',
-    helpful: 8
-  },
-  {
-    id: '3',
-    userName: 'Lê Thị Cẩm',
-    userAvatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop',
-    rating: 4,
-    comment: 'Buổi tư vấn rất bổ ích, bác sĩ giải thích dễ hiểu và đưa ra nhiều kỹ thuật thực hành hữu ích cho việc quản lý stress.',
-    date: '2024-01-15',
-    consultationType: 'Workshop nhóm',
-    helpful: 15
-  },
-  {
-    id: '4',
-    userName: 'Phạm Đức Nam',
-    userAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop',
-    rating: 5,
-    comment: 'Tôi đã tham gia nhiều buổi tư vấn với Dr. Nguyễn. Phương pháp tiếp cận của bác sĩ rất hiệu quả và phù hợp với tôi.',
-    date: '2024-01-12',
-    consultationType: 'Tư vấn định kỳ',
-    helpful: 6
+interface Review {
+  id: string
+  userName: string
+  userAvatar: string
+  rating: number
+  comment: string
+  date: string
+  consultationType: string
+  helpful: number
+}
+
+interface Education {
+  degree: string
+  institution: string
+  year: string
+  description: string
+}
+
+interface ConsultationType {
+  type: string
+  duration: string
+  price: number
+}
+
+interface WorkingHour {
+  _id: string
+  teacherId: string
+  date: string
+  startTime: string
+  endTime: string
+  isBooked: boolean
+  createdAt: string
+  updatedAt: string
+  __v: number
+}
+
+interface Teacher {
+  _id: string
+  user: User
+  specialization: string[]
+  experience: string
+  rating: number
+  reviews: number
+  price: number
+  bio: string
+  availability: string[]
+  expertise: any[]
+  createdAt: string
+  updatedAt: string
+  __v: number
+  education?: Education[]
+  certifications?: string[]
+  languages?: string[]
+  workingHours?: WorkingHour[]
+  consultationTypes?: ConsultationType[]
+  reviewDetails?: Review[]
+}
+
+interface Expert {
+  user: any
+  id: string
+  userId: string
+  name: string
+  title: string
+  image: string
+  rating: number
+  reviews: number
+  email: string
+  specialization: string[]
+  experience: string
+  price: number
+  bio: string
+  availability: { id: string; date: string; time: string; available: boolean }[]
+  education: Education[]
+  certifications: string[]
+  languages: string[]
+  workingHours: string
+  consultationTypes: ConsultationType[]
+  reviewDetails: Review[]
+}
+
+interface ApiResponse {
+  success: boolean
+  status: number
+  message: string
+  data: {
+    teacher: Teacher
+    workingHours: WorkingHour[]
   }
-];
+}
 
-// Mock additional expert data
-const mockExpertDetails = {
-  education: [
-    {
-      degree: 'Tiến sĩ Tâm lý học Lâm sàng',
-      institution: 'Đại học Y Hà Nội',
-      year: '2015',
-      description: 'Chuyên sâu về rối loạn lo âu và trầm cảm'
+interface ExpertDetailPageProps {
+  expertId: string
+  onBack: () => void
+}
+
+const mapTeacherToExpert = (teacher: Teacher, workingHours: WorkingHour[]): Expert => {
+  console.log("Mapping Teacher:", JSON.stringify(teacher, null, 2))
+  console.log("Working Hours:", JSON.stringify(workingHours, null, 2))
+
+  // Dự phòng cho dữ liệu user bị thiếu
+  const user = teacher.user || {
+    name: "Không có tên",
+    id: "",
+    _id: "",
+    bio: "Không có mô tả",
+    email: "Không có email", // Thêm giá trị dự phòng cho email
+    joinedDate: null,
+  }
+
+  // Xử lý workingHours và availability an toàn
+  const workingHoursString = teacher.availability?.length ? teacher.availability.join(", ") : "Không có thông tin"
+
+  const availability = (workingHours || [])
+    .filter((hour) => hour && hour.date && hour.startTime && hour.endTime)
+    .map((hour) => ({
+      id: hour._id, // MongoDB ObjectId from API
+      date: hour.date.split("T")[0], // Tách riêng ngày (YYYY-MM-DD)
+      time: `${hour.startTime}-${hour.endTime}`, // Chỉ giữ giờ (HH:MM-HH:MM)
+      available: !hour.isBooked,
+    }))
+
+  console.log("[v0] Mapped availability:", availability)
+  console.log("[v0] Mapped availability length:", availability.length)
+
+  // Trả về đối tượng Expert với các giá trị dự phòng
+  return {
+    id: teacher._id || "",
+    userId: user.id || user._id || "",
+    name: user.name || "Không có tên",
+    title: teacher.specialization?.[0] || "Chuyên gia tâm lý",
+    image: "https://i.pinimg.com/564x/c6/12/ac/c612ac447dff18c445897fb2130cc3fa.jpg",
+    rating: teacher.rating || 0,
+    reviews: teacher.reviews || 0,
+    specialization: teacher.specialization || [],
+    experience: teacher.experience || "Không có thông tin",
+    price: teacher.price || 0,
+    bio: teacher.bio || user.bio || "Không có mô tả",
+    availability:
+      availability.length > 0
+        ? availability
+        : [{ id: "", date: "2025-01-01", time: "Không có lịch", available: false }],
+    education: teacher.education || [],
+    certifications: teacher.certifications || [],
+    languages: teacher.languages || [],
+    workingHours: workingHoursString,
+    consultationTypes: teacher.consultationTypes || [
+      { type: "Tư vấn cá nhân", duration: "60 phút", price: teacher.price || 0 },
+    ],
+    reviewDetails: teacher.reviewDetails || [],
+    user: {
+      // Thêm user vào đối tượng Expert để khớp với cấu trúc sử dụng trong render
+      _id: user._id || "",
+      name: user.name || "Không có tên",
+      email: user.email || "Không có email",
+      bio: user.bio || "Không có mô tả",
+      joinedDate: user.joinedDate || null,
+      id: user.id || "",
     },
-    {
-      degree: 'Thạc sĩ Tâm lý học Ứng dụng',
-      institution: 'Đại học Quốc gia Hà Nội',
-      year: '2010',
-      description: 'Tâm lý học trong môi trường công việc'
-    }
-  ],
-  certifications: [
-    'Chứng chỉ Trị liệu Nhận thức Hành vi (CBT)',
-    'Chứng chỉ Mindfulness-Based Stress Reduction (MBSR)',
-    'Chứng chỉ Tư vấn Tâm lý Gia đình',
-    'Thành viên Hội Tâm lý học Việt Nam'
-  ],
-  languages: ['Tiếng Việt', 'English', 'Français'],
-  workingHours: 'Thứ 2 - Thứ 6: 8:00 - 17:00, Thứ 7: 9:00 - 15:00',
-  consultationTypes: [
-    { type: 'Tư vấn trực tiếp', duration: '60 phút', price: 500000 },
-    { type: 'Tư vấn trực tuyến', duration: '60 phút', price: 400000 },
-    { type: 'Tư vấn nhóm', duration: '90 phút', price: 300000 },
-    { type: 'Workshop', duration: '120 phút', price: 250000 }
-  ]
-};
+  }
+}
 
-export function ExpertDetailPage({ expertId, onBack, currentUser, onShowAuth }: ExpertDetailPageProps) {
-  const [showBookingDialog, setShowBookingDialog] = useState(false);
-  const [isWishlisted, setIsWishlisted] = useState(false);
-  
-  const expert = mockExperts.find(e => e.id === expertId);
-  
-  if (!expert) {
+export function ExpertDetailPage({ expertId, onBack }: ExpertDetailPageProps) {
+  const [expert, setExpert] = useState<Expert | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [showBookingDialog, setShowBookingDialog] = useState(false)
+  const [isWishlisted, setIsWishlisted] = useState(false)
+
+  useEffect(() => {
+    const fetchExpert = async () => {
+      try {
+        setLoading(true)
+        const response: ApiResponse = await apiClient.getExpert(expertId)
+        console.log("API Response:", JSON.stringify(response, null, 2))
+
+        // Kiểm tra xem response có hợp lệ không
+        if (!response.success || response.status !== 200 || !response.data) {
+          setError(response.message || "Không có dữ liệu từ API")
+          console.log("Dữ liệu không hợp lệ:", response)
+          return
+        }
+
+        // Kiểm tra xem teacher có tồn tại không
+        if (!response.data.teacher) {
+          setError("Không tìm thấy thông tin chuyên gia")
+          console.log("Thiếu dữ liệu teacher:", response.data)
+          return
+        }
+
+        // Ánh xạ dữ liệu teacher sang expert
+        const mappedExpert = mapTeacherToExpert(response.data.teacher, response.data.workingHours || [])
+        console.log("Mapped Expert:", JSON.stringify(mappedExpert, null, 2))
+
+        // Kiểm tra xem mappedExpert có hợp lệ không
+        if (!mappedExpert) {
+          setError("Lỗi khi ánh xạ dữ liệu chuyên gia")
+          console.log("mappedExpert không hợp lệ:", mappedExpert)
+          return
+        }
+
+        setExpert(mappedExpert)
+      } catch (error) {
+        console.error("Lỗi khi gọi API:", error)
+        setError("Đã xảy ra lỗi khi gọi API. Vui lòng thử lại.")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchExpert()
+  }, [expertId])
+
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
+    }).format(price * 23000)
+  }
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("vi-VN", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    })
+  }
+
+  const getExpertStatus = (expert: Expert) => {
+    const hasAvailableSlots = expert.availability.some((slot) => slot.available)
+    return hasAvailableSlots ? "online" : "offline"
+  }
+
+  const handleBookConsultation = () => {
+    setShowBookingDialog(true)
+  }
+
+  const handleWishlistToggle = () => {
+    setIsWishlisted(!isWishlisted)
+  }
+
+  const handleShare = () => {
+    if (navigator.share) {
+      navigator.share({
+        title: `Chuyên gia ${expert?.name}`,
+        text: expert?.bio,
+        url: window.location.href,
+      })
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-blue-50/30 to-white py-8">
+        <div className="max-w-4xl mx-auto px-4 text-center">
+          <p className="text-gray-600">Đang tải thông tin chuyên gia...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !expert) {
+    console.log("Render error:", error, "Expert:", expert)
     return (
       <div className="min-h-screen bg-gradient-to-b from-blue-50/30 to-white py-8">
         <div className="max-w-4xl mx-auto px-4">
           <div className="text-center py-12">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Không tìm thấy chuyên gia</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">{error || "Không tìm thấy chuyên gia"}</h2>
             <Button onClick={onBack} className="bg-blue-600 hover:bg-blue-700">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Quay lại
@@ -135,65 +315,22 @@ export function ExpertDetailPage({ expertId, onBack, currentUser, onShowAuth }: 
           </div>
         </div>
       </div>
-    );
+    )
   }
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('vi-VN', {
-      style: 'currency',
-      currency: 'VND'
-    }).format(price);
-  };
+  const status = getExpertStatus(expert)
+  const avgRating = expert.reviewDetails.length
+    ? expert.reviewDetails.reduce((sum, review) => sum + review.rating, 0) / expert.reviewDetails.length
+    : expert.rating
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('vi-VN', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
-
-  const getExpertStatus = () => {
-    const hasAvailableSlots = expert.availability.some(slot => slot.available);
-    return hasAvailableSlots ? 'online' : 'offline';
-  };
-
-  const status = getExpertStatus();
-  const avgRating = mockExpertReviews.reduce((sum, review) => sum + review.rating, 0) / mockExpertReviews.length;
-  const totalReviews = mockExpertReviews.length;
-
-  const handleBookConsultation = () => {
-    if (!currentUser && onShowAuth) {
-      onShowAuth();
-      return;
-    }
-    setShowBookingDialog(true);
-  };
-
-  const handleWishlistToggle = () => {
-    setIsWishlisted(!isWishlisted);
-  };
-
-  const handleShare = () => {
-    // Implement share functionality
-    if (navigator.share) {
-      navigator.share({
-        title: `Chuyên gia ${expert.name}`,
-        text: expert.bio,
-        url: window.location.href,
-      });
-    }
-  };
+  const totalReviews = expert.reviewDetails.length || expert.reviews
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50/30 to-white py-8">
       <div className="max-w-6xl mx-auto px-4">
         {/* Breadcrumb */}
         <div className="flex items-center space-x-2 text-sm text-gray-600 mb-6">
-          <button 
-            onClick={onBack}
-            className="flex items-center space-x-1 hover:text-blue-600 transition-colors"
-          >
+          <button onClick={onBack} className="flex items-center space-x-1 hover:text-blue-600 transition-colors">
             <ArrowLeft className="h-4 w-4" />
             <span>Chuyên gia</span>
           </button>
@@ -211,13 +348,15 @@ export function ExpertDetailPage({ expertId, onBack, currentUser, onShowAuth }: 
                   <div className="flex-shrink-0 mx-auto md:mx-0">
                     <div className="relative">
                       <Avatar className="h-32 w-32 ring-4 ring-blue-100">
-                        <AvatarImage src={expert.image} alt={expert.name} />
+                        <AvatarImage src={expert.image || "/placeholder.svg"} alt={expert.name} />
                         <AvatarFallback className="text-2xl">{expert.name.charAt(0)}</AvatarFallback>
                       </Avatar>
-                      <div className={`absolute -bottom-2 -right-2 w-8 h-8 rounded-full border-4 border-white flex items-center justify-center ${
-                        status === 'online' ? 'bg-green-500' : 'bg-gray-400'
-                      }`}>
-                        {status === 'online' ? (
+                      <div
+                        className={`absolute -bottom-2 -right-2 w-8 h-8 rounded-full border-4 border-white flex items-center justify-center ${
+                          status === "online" ? "bg-green-500" : "bg-gray-400"
+                        }`}
+                      >
+                        {status === "online" ? (
                           <CheckCircle className="h-4 w-4 text-white" />
                         ) : (
                           <Clock className="h-4 w-4 text-white" />
@@ -225,7 +364,7 @@ export function ExpertDetailPage({ expertId, onBack, currentUser, onShowAuth }: 
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="flex-1 text-center md:text-left">
                     <div className="flex flex-col md:flex-row md:items-start md:justify-between mb-4">
                       <div>
@@ -238,24 +377,24 @@ export function ExpertDetailPage({ expertId, onBack, currentUser, onShowAuth }: 
                           size="sm"
                           onClick={handleWishlistToggle}
                           className={`${
-                            isWishlisted 
-                              ? 'bg-red-50 border-red-200 text-red-600 hover:bg-red-100' 
-                              : 'border-blue-200 text-blue-600 hover:bg-blue-50'
+                            isWishlisted
+                              ? "bg-red-50 border-red-200 text-red-600 hover:bg-red-100"
+                              : "border-blue-200 text-blue-600 hover:bg-blue-50"
                           }`}
                         >
-                          <Heart className={`h-4 w-4 ${isWishlisted ? 'fill-current' : ''}`} />
+                          <Heart className={`h-4 w-4 ${isWishlisted ? "fill-current" : ""}`} />
                         </Button>
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={handleShare}
-                          className="border-blue-200 text-blue-600 hover:bg-blue-50"
+                          className="border-blue-200 text-blue-600 hover:bg-blue-50 bg-transparent"
                         >
                           <Share2 className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
-                    
+
                     <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 text-sm mb-4">
                       <div className="flex items-center space-x-1">
                         <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
@@ -264,14 +403,14 @@ export function ExpertDetailPage({ expertId, onBack, currentUser, onShowAuth }: 
                       </div>
                       <div className="flex items-center space-x-1 text-gray-600">
                         <Clock className="h-4 w-4" />
-                        <span>{expert.experience} năm kinh nghiệm</span>
+                        <span>{expert.experience}</span>
                       </div>
                       <div className="flex items-center space-x-1 text-gray-600">
                         <Users className="h-4 w-4" />
                         <span>1.2k+ tư vấn</span>
                       </div>
                     </div>
-                    
+
                     <div className="flex flex-wrap gap-2 justify-center md:justify-start mb-4">
                       {expert.specialization.map((spec, index) => (
                         <Badge key={index} variant="secondary" className="bg-blue-100 text-blue-700 border-blue-200">
@@ -279,15 +418,15 @@ export function ExpertDetailPage({ expertId, onBack, currentUser, onShowAuth }: 
                         </Badge>
                       ))}
                     </div>
-                    
-                    <Badge 
+
+                    <Badge
                       className={`${
-                        status === 'online' 
-                          ? 'bg-green-100 text-green-700 border-green-200' 
-                          : 'bg-gray-100 text-gray-700 border-gray-200'
+                        status === "online"
+                          ? "bg-green-100 text-green-700 border-green-200"
+                          : "bg-gray-100 text-gray-700 border-gray-200"
                       }`}
                     >
-                      {status === 'online' ? 'Đang hoạt động' : 'Bận'}
+                      {status === "online" ? "Đang hoạt động" : "Bận"}
                     </Badge>
                   </div>
                 </div>
@@ -313,9 +452,9 @@ export function ExpertDetailPage({ expertId, onBack, currentUser, onShowAuth }: 
                       <h3 className="font-semibold mb-3">Về tôi</h3>
                       <p className="text-gray-700 leading-relaxed">{expert.bio}</p>
                     </div>
-                    
+
                     <Separator />
-                    
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
                         <h4 className="font-medium mb-3 flex items-center space-x-2">
@@ -323,32 +462,36 @@ export function ExpertDetailPage({ expertId, onBack, currentUser, onShowAuth }: 
                           <span>Ngôn ngữ</span>
                         </h4>
                         <div className="flex flex-wrap gap-2">
-                          {mockExpertDetails.languages.map((lang, index) => (
-                            <Badge key={index} variant="outline" className="border-blue-200">
-                              {lang}
-                            </Badge>
-                          ))}
+                          {expert.languages.length > 0 ? (
+                            expert.languages.map((lang, index) => (
+                              <Badge key={index} variant="outline" className="border-blue-200">
+                                {lang}
+                              </Badge>
+                            ))
+                          ) : (
+                            <p className="text-gray-600">Không có thông tin</p>
+                          )}
                         </div>
                       </div>
-                      
+
                       <div>
                         <h4 className="font-medium mb-3 flex items-center space-x-2">
                           <Clock className="h-4 w-4 text-blue-600" />
                           <span>Giờ làm việc</span>
                         </h4>
-                        <p className="text-gray-700">{mockExpertDetails.workingHours}</p>
+                        <p className="text-gray-700">{expert.workingHours}</p>
                       </div>
                     </div>
-                    
+
                     <Separator />
-                    
+
                     <div>
                       <h4 className="font-medium mb-3 flex items-center space-x-2">
                         <MessageSquare className="h-4 w-4 text-blue-600" />
                         <span>Dịch vụ tư vấn</span>
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {mockExpertDetails.consultationTypes.map((consultation, index) => (
+                        {expert.consultationTypes.map((consultation, index) => (
                           <div key={index} className="p-4 border border-blue-100 rounded-lg bg-blue-50/30">
                             <div className="flex items-center justify-between mb-2">
                               <h5 className="font-medium">{consultation.type}</h5>
@@ -375,31 +518,39 @@ export function ExpertDetailPage({ expertId, onBack, currentUser, onShowAuth }: 
                         <span>Học vấn</span>
                       </h3>
                       <div className="space-y-4">
-                        {mockExpertDetails.education.map((edu, index) => (
-                          <div key={index} className="border-l-4 border-blue-200 pl-4">
-                            <h4 className="font-medium">{edu.degree}</h4>
-                            <p className="text-blue-600">{edu.institution}</p>
-                            <p className="text-sm text-gray-600">Năm {edu.year}</p>
-                            <p className="text-sm text-gray-700 mt-1">{edu.description}</p>
-                          </div>
-                        ))}
+                        {expert.education.length > 0 ? (
+                          expert.education.map((edu, index) => (
+                            <div key={index} className="border-l-4 border-blue-200 pl-4">
+                              <h4 className="font-medium">{edu.degree}</h4>
+                              <p className="text-blue-600">{edu.institution}</p>
+                              <p className="text-sm text-gray-600">Năm {edu.year}</p>
+                              <p className="text-sm text-gray-700 mt-1">{edu.description}</p>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-gray-600">Không có thông tin học vấn</p>
+                        )}
                       </div>
                     </div>
-                    
+
                     <Separator />
-                    
+
                     <div>
                       <h3 className="font-semibold mb-4 flex items-center space-x-2">
                         <Shield className="h-5 w-5 text-blue-600" />
                         <span>Chứng chỉ & Thành viên</span>
                       </h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {mockExpertDetails.certifications.map((cert, index) => (
-                          <div key={index} className="flex items-center space-x-2">
-                            <Award className="h-4 w-4 text-yellow-500 flex-shrink-0" />
-                            <span className="text-gray-700">{cert}</span>
-                          </div>
-                        ))}
+                        {expert.certifications.length > 0 ? (
+                          expert.certifications.map((cert, index) => (
+                            <div key={index} className="flex items-center space-x-2">
+                              <Award className="h-4 w-4 text-yellow-500 flex-shrink-0" />
+                              <span className="text-gray-700">{cert}</span>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-gray-600">Không có thông tin chứng chỉ</p>
+                        )}
                       </div>
                     </div>
                   </CardContent>
@@ -416,48 +567,50 @@ export function ExpertDetailPage({ expertId, onBack, currentUser, onShowAuth }: 
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-6">
-                      {mockExpertReviews.map((review) => (
-                        <div key={review.id} className="border-b border-blue-100 pb-6 last:border-b-0">
-                          <div className="flex items-start space-x-4">
-                            <Avatar className="h-10 w-10">
-                              <AvatarImage src={review.userAvatar} alt={review.userName} />
-                              <AvatarFallback>{review.userName.charAt(0)}</AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1">
-                              <div className="flex items-center justify-between mb-2">
-                                <div>
-                                  <h4 className="font-medium">{review.userName}</h4>
-                                  <div className="flex items-center space-x-2 text-sm text-gray-600">
-                                    <div className="flex items-center">
-                                      {[...Array(5)].map((_, i) => (
-                                        <Star
-                                          key={i}
-                                          className={`h-3 w-3 ${
-                                            i < review.rating 
-                                              ? 'fill-yellow-400 text-yellow-400' 
-                                              : 'text-gray-300'
-                                          }`}
-                                        />
-                                      ))}
+                      {expert.reviewDetails.length > 0 ? (
+                        expert.reviewDetails.map((review) => (
+                          <div key={review.id} className="border-b border-blue-100 pb-6 last:border-b-0">
+                            <div className="flex items-start space-x-4">
+                              <Avatar className="h-10 w-10">
+                                <AvatarImage src={review.userAvatar || "/placeholder.svg"} alt={review.userName} />
+                                <AvatarFallback>{review.userName.charAt(0)}</AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1">
+                                <div className="flex items-center justify-between mb-2">
+                                  <div>
+                                    <h4 className="font-medium">{review.userName}</h4>
+                                    <div className="flex items-center space-x-2 text-sm text-gray-600">
+                                      <div className="flex items-center">
+                                        {[...Array(5)].map((_, i) => (
+                                          <Star
+                                            key={i}
+                                            className={`h-3 w-3 ${
+                                              i < review.rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300"
+                                            }`}
+                                          />
+                                        ))}
+                                      </div>
+                                      <span>•</span>
+                                      <span>{formatDate(review.date)}</span>
+                                      <span>•</span>
+                                      <span>{review.consultationType}</span>
                                     </div>
-                                    <span>•</span>
-                                    <span>{formatDate(review.date)}</span>
-                                    <span>•</span>
-                                    <span>{review.consultationType}</span>
                                   </div>
                                 </div>
-                              </div>
-                              <p className="text-gray-700 mb-3">{review.comment}</p>
-                              <div className="flex items-center space-x-4 text-sm text-gray-600">
-                                <button className="flex items-center space-x-1 hover:text-blue-600">
-                                  <Users className="h-3 w-3" />
-                                  <span>Hữu ích ({review.helpful})</span>
-                                </button>
+                                <p className="text-gray-700 mb-3">{review.comment}</p>
+                                <div className="flex items-center space-x-4 text-sm text-gray-600">
+                                  <button className="flex items-center space-x-1 hover:text-blue-600">
+                                    <Users className="h-3 w-3" />
+                                    <span>Hữu ích ({review.helpful})</span>
+                                  </button>
+                                </div>
                               </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        ))
+                      ) : (
+                        <p className="text-gray-600">Chưa có đánh giá nào</p>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -467,23 +620,19 @@ export function ExpertDetailPage({ expertId, onBack, currentUser, onShowAuth }: 
                 <Card className="bg-white/90 backdrop-blur-sm border-blue-100">
                   <CardHeader>
                     <CardTitle>Lịch trình khả dụng</CardTitle>
-                    <CardDescription>
-                      Xem thời gian rảnh và đặt lịch tư vấn
-                    </CardDescription>
+                    <CardDescription>Xem thời gian rảnh và đặt lịch tư vấn</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
                       <div className="text-center">
-                        <p className="text-gray-600 mb-4">
-                          Chọn ngày và giờ phù hợp để đặt lịch tư vấn
-                        </p>
-                        <Button 
+                        <p className="text-gray-600 mb-4">Chọn ngày và giờ phù hợp để đặt lịch tư vấn</p>
+                        <Button
                           onClick={handleBookConsultation}
                           className="bg-blue-600 hover:bg-blue-700"
-                          disabled={status === 'offline'}
+                          disabled={status === "offline"}
                         >
                           <Calendar className="h-4 w-4 mr-2" />
-                          {status === 'online' ? 'Đặt lịch tư vấn' : 'Hiện tại không khả dụng'}
+                          {status === "online" ? "Đặt lịch tư vấn" : "Hiện tại không khả dụng"}
                         </Button>
                       </div>
                     </div>
@@ -496,7 +645,7 @@ export function ExpertDetailPage({ expertId, onBack, currentUser, onShowAuth }: 
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Booking Card */}
-            <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 sticky top-4">
+            <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 top-4">
               <CardHeader>
                 <CardTitle className="text-center">Đặt lịch tư vấn</CardTitle>
                 <CardDescription className="text-center">
@@ -505,21 +654,19 @@ export function ExpertDetailPage({ expertId, onBack, currentUser, onShowAuth }: 
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-blue-600 mb-1">
-                    {formatPrice(expert.price)}
-                  </div>
+                  <div className="text-3xl font-bold text-blue-600 mb-1">{formatPrice(expert.price)}</div>
                   <div className="text-sm text-gray-600">/ buổi tư vấn</div>
                 </div>
-                
-                <Button 
+
+                <Button
                   onClick={handleBookConsultation}
                   className="w-full bg-blue-600 hover:bg-blue-700"
-                  disabled={status === 'offline'}
+                  disabled={status === "offline"}
                 >
                   <Calendar className="h-4 w-4 mr-2" />
-                  {status === 'online' ? 'Đặt lịch ngay' : 'Hiện tại bận'}
+                  {status === "online" ? "Đặt lịch ngay" : "Hiện tại bận"}
                 </Button>
-                
+
                 <div className="space-y-3 text-sm">
                   <div className="flex items-center space-x-2">
                     <Video className="h-4 w-4 text-blue-600" />
@@ -562,7 +709,7 @@ export function ExpertDetailPage({ expertId, onBack, currentUser, onShowAuth }: 
                     <Clock className="h-4 w-4 text-purple-600" />
                     <span>Kinh nghiệm</span>
                   </div>
-                  <span className="font-medium">{expert.experience} năm</span>
+                  <span className="font-medium">{expert.experience}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
@@ -582,7 +729,7 @@ export function ExpertDetailPage({ expertId, onBack, currentUser, onShowAuth }: 
               <CardContent className="space-y-3">
                 <div className="flex items-center space-x-3">
                   <Mail className="h-4 w-4 text-blue-600" />
-                  <span className="text-sm">expert@feelosophy.com</span>
+                  <span className="text-sm">{expert.user.email}</span>
                 </div>
                 <div className="flex items-center space-x-3">
                   <Phone className="h-4 w-4 text-blue-600" />
@@ -602,21 +749,15 @@ export function ExpertDetailPage({ expertId, onBack, currentUser, onShowAuth }: 
         </div>
       </div>
 
-      {/* Booking Dialog - Standard dialog size */}
       <Dialog open={showBookingDialog} onOpenChange={setShowBookingDialog}>
         <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-          <DialogTitle className="sr-only">
-            Đặt lịch tư vấn với chuyên gia {expert.name}
-          </DialogTitle>
+          <DialogTitle className="sr-only">Đặt lịch tư vấn với chuyên gia {expert.name}</DialogTitle>
           <DialogDescription className="sr-only">
             Dialog để đặt lịch tư vấn với chuyên gia tâm lý. Chọn ngày và giờ phù hợp để book appointment.
           </DialogDescription>
-          <CalendarBooking 
-            expert={expert} 
-            onClose={() => setShowBookingDialog(false)} 
-          />
+          <CalendarBooking expert={expert} onClose={() => setShowBookingDialog(false)} />
         </DialogContent>
       </Dialog>
     </div>
-  );
+  )
 }

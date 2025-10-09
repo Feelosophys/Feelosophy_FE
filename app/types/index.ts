@@ -47,6 +47,7 @@ export interface Expert {
 }
 
 export interface TimeSlot {
+  id: any;
   date: string;
   time: string;
   available: boolean;

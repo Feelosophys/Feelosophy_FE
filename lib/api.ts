@@ -165,6 +165,10 @@ export class ApiClient {
     return this.authenticatedRequest<User>('/users/profile', 'GET');
   }
 
+  async updateProfile(userData: { name?: string; email?: string; avatar?: string }) {
+    return this.authenticatedRequest<User>('/users/profile', 'PUT', userData);
+  }
+
   async logout() {
     const response = await this.request<void>('/auth/logout', 'POST');
     this.clearTokens();
@@ -206,7 +210,7 @@ export class ApiClient {
     featured?: boolean;
   }) {
     return this.request<{
-  courses: unknown[];
+      courses: unknown[];
       pagination: {
         currentPage: number;
         totalPages: number;
@@ -225,13 +229,13 @@ export class ApiClient {
     }>('/courses/categories', 'GET');
   }
 
-  // Expert methods
+  // Expert methods expert is teacher
   async getExpert(id: string) {
-    return this.request<unknown>(`/experts/${id}`, 'GET');
+    return this.request<unknown>(`/teachers/${id}`, 'GET');
   }
 
   async getExperts() {
-    return this.request<unknown[]>('/experts', 'GET');
+    return this.request<unknown[]>('/teachers', 'GET');
   }
 
   // Blog methods
@@ -281,6 +285,39 @@ export class ApiClient {
       status: string;
       paymentData: Record<string, unknown>;
     }>(`/payments/check/${orderId}`, 'GET');
+  }
+
+  // Appointment methods
+  async bookAppointment(data: {
+    workingHourId: string // MongoDB ObjectId
+    duration: number
+    consultationType: "online" | "inperson" | "phone"
+  }) {
+    return this.authenticatedRequest<unknown>("/appointments", "POST", data)
+  }
+
+  async getUserAppointments(params?: {
+    page?: number
+    limit?: number
+    status?: "upcoming" | "past" | "all"
+    sortBy?: "date" | "createdAt"
+    sortOrder?: "asc" | "desc"
+  }) {
+    return this.authenticatedRequest<unknown>("/appointments", "GET", params)
+  }
+
+  async getTeacherAppointments(
+    id: string,
+    p0: { status: string; limit: number },
+    params?: {
+      page?: number
+      limit?: number
+      status?: "upcoming" | "past" | "all"
+      sortBy?: "date" | "createdAt"
+      sortOrder?: "asc" | "desc"
+    },
+  ) {
+    return this.authenticatedRequest<unknown>(`/appointments/teacher`, "GET", params)
   }
 }
 
