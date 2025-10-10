@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Button } from "./ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card"
 import { Badge } from "./ui/badge"
@@ -76,6 +76,14 @@ interface WorkingHour {
   __v: number
 }
 
+interface WorkingSlot {
+  id: string
+  date: string
+  startTime: string
+  endTime: string
+  isBooked: boolean
+}
+
 interface Teacher {
   _id: string
   user: User
@@ -86,7 +94,7 @@ interface Teacher {
   price: number
   bio: string
   availability: string[]
-  expertise: any[]
+  expertise: string[]
   createdAt: string
   updatedAt: string
   __v: number
@@ -99,7 +107,7 @@ interface Teacher {
 }
 
 interface Expert {
-  user: any
+  user: User
   id: string
   userId: string
   name: string
@@ -119,6 +127,7 @@ interface Expert {
   workingHours: string
   consultationTypes: ConsultationType[]
   reviewDetails: Review[]
+  workingSlots: WorkingSlot[]
 }
 
 interface ApiResponse {
@@ -153,14 +162,27 @@ const mapTeacherToExpert = (teacher: Teacher, workingHours: WorkingHour[]): Expe
   // Xử lý workingHours và availability an toàn
   const workingHoursString = teacher.availability?.length ? teacher.availability.join(", ") : "Không có thông tin"
 
-  const availability = (workingHours || [])
-    .filter((hour) => hour && hour.date && hour.startTime && hour.endTime)
-    .map((hour) => ({
-      id: hour._id, // MongoDB ObjectId from API
-      date: hour.date.split("T")[0], // Tách riêng ngày (YYYY-MM-DD)
-      time: `${hour.startTime}-${hour.endTime}`, // Chỉ giữ giờ (HH:MM-HH:MM)
-      available: !hour.isBooked,
-    }))
+  const normalizedWorkingSlots: WorkingSlot[] = (workingHours || [])
+    .filter((hour) => hour && hour._id && hour.date && hour.startTime && hour.endTime)
+    .map((hour) => {
+      const slotDate = new Date(hour.date)
+      const isoDate = Number.isNaN(slotDate.getTime()) ? new Date().toISOString() : slotDate.toISOString()
+
+      return {
+        id: hour._id,
+        date: isoDate,
+        startTime: hour.startTime,
+        endTime: hour.endTime,
+        isBooked: Boolean(hour.isBooked),
+      }
+    })
+
+  const availability = normalizedWorkingSlots.map((slot) => ({
+    id: slot.id,
+    date: slot.date.split("T")[0],
+    time: `${slot.startTime}-${slot.endTime}`,
+    available: !slot.isBooked,
+  }))
 
   console.log("[v0] Mapped availability:", availability)
   console.log("[v0] Mapped availability length:", availability.length)
@@ -190,6 +212,7 @@ const mapTeacherToExpert = (teacher: Teacher, workingHours: WorkingHour[]): Expe
       { type: "Tư vấn cá nhân", duration: "60 phút", price: teacher.price || 0 },
     ],
     reviewDetails: teacher.reviewDetails || [],
+    workingSlots: normalizedWorkingSlots,
     user: {
       // Thêm user vào đối tượng Expert để khớp với cấu trúc sử dụng trong render
       _id: user._id || "",
@@ -208,6 +231,7 @@ export function ExpertDetailPage({ expertId, onBack }: ExpertDetailPageProps) {
   const [error, setError] = useState<string | null>(null)
   const [showBookingDialog, setShowBookingDialog] = useState(false)
   const [isWishlisted, setIsWishlisted] = useState(false)
+  const [initialSlotId, setInitialSlotId] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchExpert = async () => {
@@ -269,11 +293,22 @@ export function ExpertDetailPage({ expertId, onBack }: ExpertDetailPageProps) {
   }
 
   const getExpertStatus = (expert: Expert) => {
-    const hasAvailableSlots = expert.availability.some((slot) => slot.available)
-    return hasAvailableSlots ? "online" : "offline"
+    const now = new Date()
+    return expert.workingSlots.some((slot) => {
+      const slotDate = new Date(slot.date)
+      if (Number.isNaN(slotDate.getTime())) return false
+
+      const [hour, minute] = slot.startTime.split(":").map(Number)
+      slotDate.setHours(hour || 0, minute || 0, 0, 0)
+
+      return !slot.isBooked && slotDate >= now
+    })
+      ? "online"
+      : "offline"
   }
 
-  const handleBookConsultation = () => {
+  const handleBookConsultation = (slotId?: string) => {
+    setInitialSlotId(slotId ?? null)
     setShowBookingDialog(true)
   }
 
@@ -290,6 +325,25 @@ export function ExpertDetailPage({ expertId, onBack }: ExpertDetailPageProps) {
       })
     }
   }
+
+  const upcomingSlots = useMemo(() => {
+    const slots = expert?.workingSlots ?? []
+    if (slots.length === 0) return []
+
+    const now = new Date()
+
+    const toDateTime = (slot: WorkingSlot) => {
+      const datePart = new Date(slot.date)
+      const [hour, minute] = slot.startTime.split(":").map(Number)
+      datePart.setHours(hour || 0, minute || 0, 0, 0)
+      return datePart
+    }
+
+    return slots
+      .filter((slot) => !slot.isBooked && toDateTime(slot) >= now)
+      .sort((a, b) => toDateTime(a).getTime() - toDateTime(b).getTime())
+      .slice(0, 4)
+  }, [expert])
 
   if (loading) {
     return (
@@ -324,6 +378,18 @@ export function ExpertDetailPage({ expertId, onBack }: ExpertDetailPageProps) {
     : expert.rating
 
   const totalReviews = expert.reviewDetails.length || expert.reviews
+
+  const formatSlotLabel = (slot: WorkingSlot) => {
+    const date = new Date(slot.date)
+    const formatter = new Intl.DateTimeFormat("vi-VN", {
+      weekday: "short",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    })
+
+    return `${formatter.format(date)} · ${slot.startTime} - ${slot.endTime}`
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50/30 to-white py-8">
@@ -627,7 +693,7 @@ export function ExpertDetailPage({ expertId, onBack }: ExpertDetailPageProps) {
                       <div className="text-center">
                         <p className="text-gray-600 mb-4">Chọn ngày và giờ phù hợp để đặt lịch tư vấn</p>
                         <Button
-                          onClick={handleBookConsultation}
+                          onClick={() => handleBookConsultation()}
                           className="bg-blue-600 hover:bg-blue-700"
                           disabled={status === "offline"}
                         >
@@ -658,8 +724,38 @@ export function ExpertDetailPage({ expertId, onBack }: ExpertDetailPageProps) {
                   <div className="text-sm text-gray-600">/ buổi tư vấn</div>
                 </div>
 
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-sm text-gray-700">
+                    <span className="font-medium">Khung giờ khả dụng</span>
+                    <Badge variant="outline" className="border-blue-200 text-blue-600">
+                      {expert.workingSlots.filter((slot) => !slot.isBooked).length}
+                    </Badge>
+                  </div>
+
+                  <div className="space-y-2">
+                    {upcomingSlots.length > 0 ? (
+                      upcomingSlots.map((slot) => (
+                        <Button
+                          key={slot.id}
+                          variant="outline"
+                          className="w-full justify-between border-blue-200 hover:bg-blue-50"
+                          onClick={() => handleBookConsultation(slot.id)}
+                          disabled={status === "offline"}
+                        >
+                          <span>{formatSlotLabel(slot)}</span>
+                          <Calendar className="h-4 w-4 text-blue-600" />
+                        </Button>
+                      ))
+                    ) : (
+                      <p className="text-sm text-gray-600">
+                        Hiện chưa có khung giờ trống. Vui lòng kiểm tra lại sau.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
                 <Button
-                  onClick={handleBookConsultation}
+                  onClick={() => handleBookConsultation()}
                   className="w-full bg-blue-600 hover:bg-blue-700"
                   disabled={status === "offline"}
                 >
@@ -749,13 +845,28 @@ export function ExpertDetailPage({ expertId, onBack }: ExpertDetailPageProps) {
         </div>
       </div>
 
-      <Dialog open={showBookingDialog} onOpenChange={setShowBookingDialog}>
+      <Dialog
+        open={showBookingDialog}
+        onOpenChange={(open) => {
+          setShowBookingDialog(open)
+          if (!open) {
+            setInitialSlotId(null)
+          }
+        }}
+      >
         <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogTitle className="sr-only">Đặt lịch tư vấn với chuyên gia {expert.name}</DialogTitle>
           <DialogDescription className="sr-only">
             Dialog để đặt lịch tư vấn với chuyên gia tâm lý. Chọn ngày và giờ phù hợp để book appointment.
           </DialogDescription>
-          <CalendarBooking expert={expert} onClose={() => setShowBookingDialog(false)} />
+          <CalendarBooking
+            expert={expert}
+            initialSlotId={initialSlotId ?? undefined}
+            onClose={() => {
+              setShowBookingDialog(false)
+              setInitialSlotId(null)
+            }}
+          />
         </DialogContent>
       </Dialog>
     </div>

@@ -289,9 +289,9 @@ export class ApiClient {
 
   // Appointment methods
   async bookAppointment(data: {
-    workingHourId: string // MongoDB ObjectId
-    duration: number
-    consultationType: "online" | "inperson" | "phone"
+    teacherId: string
+    workingHourId: string
+    notes?: string
   }) {
     return this.authenticatedRequest<unknown>("/appointments", "POST", data)
   }
@@ -318,6 +318,16 @@ export class ApiClient {
     },
   ) {
     return this.authenticatedRequest<unknown>(`/appointments/teacher`, "GET", params)
+  }
+
+  async joinAppointment(appointmentId: string) {
+    return this.authenticatedRequest<{
+      roomId: string
+      token: string
+      appId: number
+      userId: string
+      serverUrl: string
+    }>(`/appointments/${appointmentId}/join`, "GET")
   }
 }
 

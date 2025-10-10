@@ -14,9 +14,11 @@ import { User, History, Lock, CreditCard, BookOpen, Users, Calendar, Edit3, Cloc
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { useAuthContext } from '@/lib/auth-context';
 import { apiClient } from '@/lib/api';
-import type { UserCourseEnrollment, UserCoursesSummary } from '@/lib/types';
+import type { User as ProfileUser, UserCourseEnrollment, UserCoursesSummary } from '@/lib/types';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
+import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 
-// Mock appointments/schedule data and transactions (keeping these as mock since only user profile is being updated)
+// Mock transaction data (appointments are now loaded from API)
 const mockTransactions = [
   {
     id: '1',
@@ -36,59 +38,6 @@ const mockTransactions = [
     status: 'completed',
     type: 'consultation',
   },
-];
-
-const mockAppointments = [
-  {
-    id: '1',
-    title: 'Tư vấn cá nhân với Dr. Nguyễn Văn A',
-    date: '2024-01-25',
-    time: '10:00',
-    duration: 60,
-    expert: 'Dr. Nguyễn Văn A',
-    expertImage: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=150&h=150&fit=crop',
-    type: 'Tư vấn trực tuyến',
-    status: 'upcoming',
-    meetingLink: 'https://meet.feelosophy.com/session-123',
-    notes: 'Tư vấn về quản lý stress trong công việc'
-  },
-  {
-    id: '2',
-    title: 'Buổi workshop "Mindfulness cơ bản"',
-    date: '2024-01-22',
-    time: '14:30',
-    duration: 90,
-    expert: 'Dr. Trần Thị B',
-    expertImage: 'https://images.unsplash.com/photo-1594824792696-9c62e80bb2ce?w=150&h=150&fit=crop',
-    type: 'Workshop nhóm',
-    status: 'completed',
-    notes: 'Workshop giới thiệu các kỹ thuật mindfulness cơ bản'
-  },
-  {
-    id: '3',
-    title: 'Tư vấn gia đình với Dr. Lê Minh C',
-    date: '2024-01-20',
-    time: '16:00',
-    duration: 75,
-    expert: 'Dr. Lê Minh C',
-    expertImage: 'https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=150&h=150&fit=crop',
-    type: 'Tư vấn trực tuyến',
-    status: 'completed',
-    notes: 'Tư vấn về giao tiếp trong gia đình'
-  },
-  {
-    id: '4',
-    title: 'Tái khám với Dr. Nguyễn Văn A',
-    date: '2024-02-01',
-    time: '09:00',
-    duration: 45,
-    expert: 'Dr. Nguyễn Văn A',
-    expertImage: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=150&h=150&fit=crop',
-    type: 'Tư vấn trực tuyến',
-    status: 'upcoming',
-    meetingLink: 'https://meet.feelosophy.com/session-456',
-    notes: 'Theo dõi tiến triển sau 2 tuần tư vấn'
-  }
 ];
 
 // Mock wishlist data (keeping as mock since only user profile is being updated)
@@ -118,6 +67,61 @@ const mockCourses = [
   },
 ];
 
+interface AppointmentTeacher {
+  id: string;
+  name: string;
+  email?: string;
+}
+
+interface AppointmentWorkingHour {
+  id: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+}
+
+interface AppointmentItem {
+  id: string;
+  status: string;
+  notes?: string;
+  createdAt?: string;
+  teacher: AppointmentTeacher;
+  workingHour: AppointmentWorkingHour;
+}
+
+interface AppointmentJoinInfo {
+  appointmentId: string;
+  roomId: string;
+  token: string;
+  appId: number;
+  userId: string;
+  serverUrl: string;
+  callUrl?: string;
+}
+
+interface AppointmentApiResponse {
+  _id?: string;
+  id?: string;
+  userId?: string;
+  teacherId?: {
+    _id?: string;
+    id?: string;
+    name?: string;
+    email?: string;
+  };
+  workingHourId?: {
+    _id?: string;
+    id?: string;
+    date?: string;
+    startTime?: string;
+    endTime?: string;
+  };
+  notes?: string;
+  status?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 const toggleWishlist = (courseId: string) => {
   // Mock toggle function
   console.log(`Toggled wishlist for course ${courseId}`);
@@ -138,7 +142,7 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
   const { isAuthenticated } = useAuthContext();
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
-  const [userData, setUserData] = useState<User | null>(null);
+  const [userData, setUserData] = useState<ProfileUser | null>(null);
   const [userLoading, setUserLoading] = useState(true);
   const [userError, setUserError] = useState<string | null>(null);
   const [passwordData, setPasswordData] = useState({
@@ -152,6 +156,13 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
   const [coursesSummary, setCoursesSummary] = useState<UserCoursesSummary>({ ...DEFAULT_COURSE_SUMMARY });
   const [coursesLoading, setCoursesLoading] = useState(false);
   const [coursesError, setCoursesError] = useState<string | null>(null);
+  const [appointments, setAppointments] = useState<AppointmentItem[]>([]);
+  const [appointmentsLoading, setAppointmentsLoading] = useState(false);
+  const [appointmentsError, setAppointmentsError] = useState<string | null>(null);
+  const [joinLoadingId, setJoinLoadingId] = useState<string | null>(null);
+  const [joinError, setJoinError] = useState<string | null>(null);
+  const [joinInfo, setJoinInfo] = useState<AppointmentJoinInfo | null>(null);
+  const [isJoinDialogOpen, setIsJoinDialogOpen] = useState(false);
 
   const loadUserProfile = useCallback(async () => {
     if (!isAuthenticated) {
@@ -206,10 +217,60 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
     }
   }, [isAuthenticated]);
 
+  const loadAppointments = useCallback(async () => {
+    if (!isAuthenticated) {
+      setAppointments([]);
+      return;
+    }
+
+    setAppointmentsLoading(true);
+    setAppointmentsError(null);
+
+    try {
+      const response = await apiClient.getUserAppointments();
+      if (response.success && Array.isArray(response.data)) {
+        const mapped: AppointmentItem[] = (response.data as AppointmentApiResponse[]).map((item) => {
+          const teacherId = item.teacherId?._id || item.teacherId?.id || '';
+          const teacherName = item.teacherId?.name || 'Chuyên gia Feelo';
+          const workingHourDate = item.workingHourId?.date || item.createdAt || new Date().toISOString();
+
+          return {
+            id: item._id || item.id || `${teacherId}-${workingHourDate}`,
+            status: item.status || 'booked',
+            notes: item.notes,
+            createdAt: item.createdAt,
+            teacher: {
+              id: teacherId,
+              name: teacherName,
+              email: item.teacherId?.email,
+            },
+            workingHour: {
+              id: item.workingHourId?._id || item.workingHourId?.id || '',
+              date: workingHourDate,
+              startTime: item.workingHourId?.startTime || '--:--',
+              endTime: item.workingHourId?.endTime || '--:--',
+            },
+          };
+        });
+
+        setAppointments(mapped);
+      } else {
+        setAppointments([]);
+        setAppointmentsError(response.error || response.message || 'Không thể tải lịch hẹn.');
+      }
+    } catch (error) {
+      setAppointments([]);
+      setAppointmentsError(error instanceof Error ? error.message : 'Không thể tải lịch hẹn.');
+    } finally {
+      setAppointmentsLoading(false);
+    }
+  }, [isAuthenticated]);
+
   useEffect(() => {
     loadUserProfile();
     loadEnrolledCourses();
-  }, [loadUserProfile, loadEnrolledCourses]);
+    loadAppointments();
+  }, [loadUserProfile, loadEnrolledCourses, loadAppointments]);
 
   useEffect(() => {
     setActiveTab(defaultTab);
@@ -247,7 +308,8 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
     }).format(price);
   };
 
-  const formatDate = (dateInput: string | Date) => {
+  const formatDate = (dateInput?: string | Date | null) => {
+    if (!dateInput) return '--';
     const dateObj = dateInput instanceof Date ? dateInput : new Date(dateInput);
     if (Number.isNaN(dateObj.getTime())) {
       return '--';
@@ -255,8 +317,28 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
     return dateObj.toLocaleDateString('vi-VN');
   };
 
-  const formatDateTime = (date: string, time: string) => {
-    const dateObj = new Date(`${date} ${time}`);
+  const combineDateTime = useCallback((date?: string, time?: string) => {
+    if (!date) return null;
+    const dateObj = new Date(date);
+    if (Number.isNaN(dateObj.getTime())) return null;
+
+    if (time) {
+      const [hour, minute] = time.split(':').map(Number);
+      dateObj.setHours(hour || 0, minute || 0, 0, 0);
+    }
+
+    return dateObj;
+  }, []);
+
+  const formatDateTime = useCallback((date?: string, time?: string) => {
+    const dateObj = combineDateTime(date, time);
+    if (!dateObj) {
+      return {
+        date: '--',
+        time: '--:--'
+      };
+    }
+
     return {
       date: dateObj.toLocaleDateString('vi-VN', {
         weekday: 'long',
@@ -269,6 +351,25 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
         minute: '2-digit'
       })
     };
+  }, [combineDateTime]);
+
+  const calculateDurationMinutes = (startTime?: string, endTime?: string) => {
+    if (!startTime || !endTime) return null;
+    const [startHour = 0, startMinute = 0] = startTime.split(':').map(Number);
+    const [endHour = 0, endMinute = 0] = endTime.split(':').map(Number);
+    const startTotal = startHour * 60 + startMinute;
+    const endTotal = endHour * 60 + endMinute;
+    const diff = endTotal - startTotal;
+    return diff > 0 ? diff : null;
+  };
+
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .filter(Boolean)
+      .map((part) => part[0]?.toUpperCase() ?? '')
+      .join('')
+      .slice(0, 2) || 'FE';
   };
 
   const getStatusBadge = (status: string) => {
@@ -285,12 +386,16 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
   };
 
   const getAppointmentStatusBadge = (status: string) => {
-    switch (status) {
+    const normalized = (status || '').toLowerCase();
+    switch (normalized) {
+      case 'booked':
       case 'upcoming':
+      case 'confirmed':
         return <Badge className="bg-blue-100 text-blue-700 border-blue-200">Sắp tới</Badge>;
       case 'completed':
         return <Badge className="bg-green-100 text-green-700 border-green-200">Đã hoàn thành</Badge>;
       case 'cancelled':
+      case 'canceled':
         return <Badge className="bg-red-100 text-red-700 border-red-200">Đã hủy</Badge>;
       default:
         return <Badge variant="secondary">{status}</Badge>;
@@ -340,8 +445,66 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
     router.push(`/learner/${courseId}`);
   };
 
-  const handleJoinMeeting = (meetingLink: string) => {
-    window.open(meetingLink, '_blank');
+  const handleJoinMeeting = async (appointmentId: string) => {
+    if (!appointmentId) return;
+
+    setJoinLoadingId(appointmentId);
+    setJoinError(null);
+
+    try {
+      const response = await apiClient.joinAppointment(appointmentId);
+      if (response.success && response.data) {
+        const payload = response.data as Omit<AppointmentJoinInfo, 'appointmentId' | 'callUrl'>;
+        let callUrlString: string | undefined;
+
+        if (typeof window !== 'undefined') {
+          const baseUrl = `${window.location.origin}/call/${appointmentId}`;
+          const callUrl = new URL(baseUrl);
+          if (payload.roomId) callUrl.searchParams.set('roomId', payload.roomId);
+          if (payload.token) callUrl.searchParams.set('token', payload.token);
+          if (payload.appId !== undefined && payload.appId !== null) {
+            callUrl.searchParams.set('appId', String(payload.appId));
+          }
+          if (payload.userId) {
+            callUrl.searchParams.set('userId', payload.userId);
+          }
+          const participantName = userData?.name?.trim() || payload.userId || 'Guest';
+          callUrl.searchParams.set('userName', participantName);
+          if (payload.serverUrl) {
+            callUrl.searchParams.set('serverUrl', payload.serverUrl);
+          }
+
+          callUrlString = callUrl.toString();
+          window.open(callUrlString, '_blank', 'noopener,noreferrer');
+        }
+
+        setJoinInfo({
+          appointmentId,
+          roomId: payload.roomId,
+          token: payload.token,
+          appId: payload.appId,
+          userId: payload.userId,
+          serverUrl: payload.serverUrl,
+          callUrl: callUrlString,
+        });
+
+        setIsJoinDialogOpen(true);
+      } else {
+        setJoinError(response.error || response.message || 'Không thể tham gia buổi tư vấn.');
+      }
+    } catch (error) {
+      console.error('Join appointment error:', error);
+      setJoinError(error instanceof Error ? error.message : 'Không thể tham gia buổi tư vấn.');
+    } finally {
+      setJoinLoadingId(null);
+    }
+  };
+
+  const handleJoinDialogChange = (open: boolean) => {
+    setIsJoinDialogOpen(open);
+    if (!open) {
+      setJoinInfo(null);
+    }
   };
 
   const wishlistedCourses = mockCourses.filter(course => wishlistItems.includes(course.id));
@@ -357,9 +520,27 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
   }, [enrolledCourses]);
   const certificatesEarned = 0;
 
-  const upcomingAppointments = mockAppointments.filter(app => app.status === 'upcoming').length;
-  const completedAppointments = mockAppointments.filter(app => app.status === 'completed').length;
-  const totalAppointments = mockAppointments.length;
+  const appointmentStats = useMemo(() => {
+    const now = new Date();
+    return appointments.reduce(
+      (acc, appointment) => {
+        const status = (appointment.status || '').toLowerCase();
+        const dateTime = combineDateTime(appointment.workingHour.date, appointment.workingHour.startTime);
+
+        if (status === 'completed') {
+          acc.completed += 1;
+        } else if (status !== 'cancelled' && status !== 'canceled' && dateTime && dateTime > now) {
+          acc.upcoming += 1;
+        }
+
+        acc.total += 1;
+        return acc;
+      },
+      { upcoming: 0, completed: 0, total: 0 },
+    );
+  }, [appointments, combineDateTime]);
+
+  const { upcoming: upcomingAppointments, completed: completedAppointments, total: totalAppointments } = appointmentStats;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50/30 to-white py-8">
@@ -820,36 +1001,92 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {mockAppointments.length > 0 ? (
+                {joinError && (
+                  <Alert variant="destructive" className="mb-4">
+                    <AlertTitle>Không thể tham gia</AlertTitle>
+                    <AlertDescription>{joinError}</AlertDescription>
+                  </Alert>
+                )}
+
+                {appointmentsLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="h-10 w-10 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
+                  </div>
+                ) : appointmentsError ? (
                   <div className="space-y-4">
-                    {mockAppointments.map((appointment) => {
-                      const dateTime = formatDateTime(appointment.date, appointment.time);
+                    <Alert variant="destructive">
+                      <AlertTitle>Không thể tải lịch hẹn</AlertTitle>
+                      <AlertDescription>{appointmentsError}</AlertDescription>
+                    </Alert>
+                    <div className="flex justify-center">
+                      <Button
+                        variant="outline"
+                        onClick={loadAppointments}
+                        className="border-blue-200 text-blue-700 hover:bg-blue-50"
+                      >
+                        Thử lại
+                      </Button>
+                    </div>
+                  </div>
+                ) : appointments.length > 0 ? (
+                  <div className="space-y-4">
+                    {appointments.map((appointment) => {
+                      const teacherName = appointment.teacher.name;
+                      const formattedDateTime = formatDateTime(
+                        appointment.workingHour.date,
+                        appointment.workingHour.startTime
+                      );
+                      const durationMinutes = calculateDurationMinutes(
+                        appointment.workingHour.startTime,
+                        appointment.workingHour.endTime
+                      );
+                      const appointmentDateTime = combineDateTime(
+                        appointment.workingHour.date,
+                        appointment.workingHour.startTime
+                      );
+                      const normalizedStatus = (appointment.status || '').toLowerCase();
+                      const isCancelableStatus =
+                        normalizedStatus === 'cancelled' || normalizedStatus === 'canceled';
+                      const isCompleted = normalizedStatus === 'completed';
+                      const isUpcomingMeeting =
+                        appointmentDateTime && !isCompleted && !isCancelableStatus && appointmentDateTime.getTime() >= Date.now();
+                      const initials = getInitials(teacherName);
+                      const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                        teacherName
+                      )}&background=E0F2FE&color=0F172A`;
+
                       return (
-                        <Card key={appointment.id} className="overflow-hidden hover:shadow-lg transition-all duration-300 bg-white/90 backdrop-blur-sm border-blue-100 hover:border-blue-200 group">
+                        <Card
+                          key={appointment.id}
+                          className="overflow-hidden hover:shadow-lg transition-all duration-300 bg-white/90 backdrop-blur-sm border-blue-100 hover:border-blue-200 group"
+                        >
                           <CardContent className="p-4">
                             <div className="flex flex-col md:flex-row md:items-center space-y-4 md:space-y-0 md:space-x-4">
                               <div className="flex items-center space-x-3 flex-1">
                                 <Avatar className="h-12 w-12 ring-2 ring-blue-100">
-                                  <AvatarImage src={appointment.expertImage} alt={appointment.expert} />
-                                  <AvatarFallback>{appointment.expert.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                                  <AvatarImage src={avatarUrl} alt={teacherName} />
+                                  <AvatarFallback>{initials}</AvatarFallback>
                                 </Avatar>
                                 <div className="flex-1 min-w-0">
                                   <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
-                                    {appointment.title}
+                                    Buổi tư vấn cùng {teacherName}
                                   </h3>
-                                  <p className="text-blue-600 font-medium text-sm">{appointment.expert}</p>
-                                  <div className="flex items-center space-x-4 text-sm text-gray-600 mt-1">
+                                  <p className="text-blue-600 font-medium text-sm">Chuyên gia {teacherName}</p>
+                                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-600 mt-1">
                                     <div className="flex items-center space-x-1">
                                       <Calendar className="h-3 w-3" />
-                                      <span>{dateTime.date}</span>
+                                      <span>{formattedDateTime.date}</span>
                                     </div>
                                     <div className="flex items-center space-x-1">
                                       <Clock className="h-3 w-3" />
-                                      <span>{dateTime.time} ({appointment.duration} phút)</span>
+                                      <span>
+                                        {formattedDateTime.time}
+                                        {durationMinutes ? ` (${durationMinutes} phút)` : ''}
+                                      </span>
                                     </div>
                                     <div className="flex items-center space-x-1">
                                       <MapPin className="h-3 w-3" />
-                                      <span>{appointment.type}</span>
+                                      <span>Trực tuyến (Zego Cloud)</span>
                                     </div>
                                   </div>
                                 </div>
@@ -857,14 +1094,15 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
 
                               <div className="flex flex-col items-end space-y-2">
                                 {getAppointmentStatusBadge(appointment.status)}
-                                {appointment.status === 'upcoming' && appointment.meetingLink && (
+                                {isUpcomingMeeting && (
                                   <Button
                                     size="sm"
-                                    onClick={() => handleJoinMeeting(appointment.meetingLink!)}
+                                    onClick={() => handleJoinMeeting(appointment.id)}
                                     className="bg-blue-600 hover:bg-blue-700"
+                                    disabled={joinLoadingId === appointment.id}
                                   >
                                     <Video className="h-4 w-4 mr-2" />
-                                    Tham gia
+                                    {joinLoadingId === appointment.id ? 'Đang kết nối...' : 'Tham gia'}
                                   </Button>
                                 )}
                               </div>
@@ -885,9 +1123,7 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
                 ) : (
                   <div className="text-center py-12">
                     <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">
-                      Chưa có lịch hẹn nào
-                    </h3>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">Chưa có lịch hẹn nào</h3>
                     <p className="text-gray-600 mb-4">
                       Đặt lịch tư vấn với chuyên gia để bắt đầu hành trình chăm sóc sức khỏe tinh thần
                     </p>
@@ -1074,6 +1310,49 @@ export function ProfilePage({ defaultTab = 'profile', onCourseSelect }: ProfileP
             </Card>
           </TabsContent>
         </Tabs>
+
+        <Dialog open={isJoinDialogOpen} onOpenChange={handleJoinDialogChange}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Đang mở phòng tư vấn</DialogTitle>
+              <DialogDescription>
+                Chúng tôi đã mở giao diện cuộc gọi Zego trong tab mới. Nếu trình duyệt chặn cửa sổ bật lên, hãy mở lại bằng nút bên dưới.
+              </DialogDescription>
+            </DialogHeader>
+
+            {joinInfo ? (
+              <div className="space-y-4">
+                <Alert className="border-blue-200 bg-blue-50/60 text-blue-700">
+                  <AlertTitle>Cuộc gọi đã sẵn sàng</AlertTitle>
+                  <AlertDescription>
+                    Hãy đảm bảo cho phép quyền truy cập micro và camera để bắt đầu buổi tư vấn.
+                  </AlertDescription>
+                </Alert>
+
+                <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+                  <Button
+                    onClick={() => {
+                      if (joinInfo.callUrl) {
+                        window.open(joinInfo.callUrl, '_blank', 'noopener,noreferrer');
+                      }
+                    }}
+                    disabled={!joinInfo.callUrl}
+                    className="flex-1 sm:flex-none"
+                  >
+                    Mở lại phòng gọi
+                  </Button>
+                  <Button variant="outline" onClick={() => handleJoinDialogChange(false)} className="flex-1 sm:flex-none">
+                    Đóng
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="py-10 text-center text-sm text-gray-500">
+                Đang chuẩn bị phòng tư vấn...
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
