@@ -16,6 +16,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Feelosophy - Learn and Grow",
   description: "A platform for learning and personal development",
+  icons: {
+    icon: "/feelosophy.ico", 
+  },
 };
 
 export default function RootLayout({

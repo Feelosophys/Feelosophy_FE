@@ -1,7 +1,7 @@
 "use client"
 
-import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Badge } from './ui/badge';
@@ -11,7 +11,6 @@ import { Progress } from './ui/progress';
 import { 
   BookOpen, 
   Search, 
-  Filter,
   Download,
   Eye,
   Edit,
@@ -28,7 +27,7 @@ import {
   Award
 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
-import { mockCourses } from '../data/mockData';
+import { adminApiClient } from '../../lib/adminCourseApi';
 
 interface CourseAnalytics {
   id: string;
@@ -49,51 +48,101 @@ interface CourseAnalytics {
   image: string;
 }
 
-// Enhanced course data with analytics
-const coursesWithAnalytics: CourseAnalytics[] = mockCourses.map((course, index) => ({
-  id: course.id,
-  title: course.title,
-  instructor: course.instructor,
-  category: course.category,
-  level: course.level,
-  price: course.price,
-  originalPrice: course.originalPrice,
-  students: course.students,
-  rating: course.rating,
-  revenue: course.price * course.students,
-  completionRate: Math.floor(Math.random() * 30) + 70, // 70-100%
-  status: Math.random() > 0.1 ? 'active' : Math.random() > 0.5 ? 'draft' : 'archived',
-  createdDate: new Date(2023 + Math.floor(Math.random() * 2), Math.floor(Math.random() * 12), Math.floor(Math.random() * 28)).toISOString().split('T')[0],
-  lastUpdated: new Date(2024, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28)).toISOString().split('T')[0],
-  duration: course.duration,
-  image: course.image
-}));
+interface CourseStats {
+  totalCourses: number;
+  activeCourses: number;
+  totalStudents: number;
+  totalRevenue: number;
+  averageRating: number;
+  averageCompletionRate: number;
+}
 
 export function AdminCoursesPage() {
-  const [courses] = useState<CourseAnalytics[]>(coursesWithAnalytics);
-  const [filteredCourses, setFilteredCourses] = useState<CourseAnalytics[]>(coursesWithAnalytics);
+  const [courses, setCourses] = useState<CourseAnalytics[]>([]);
+  const [filteredCourses, setFilteredCourses] = useState<CourseAnalytics[]>([]);
+  const [stats, setStats] = useState<CourseStats>({
+    totalCourses: 0,
+    activeCourses: 0,
+    totalStudents: 0,
+    totalRevenue: 0,
+    averageRating: 0,
+    averageCompletionRate: 0,
+  });
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [levelFilter, setLevelFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [itemsPerPage] = useState(10);
   const [sortField, setSortField] = useState<keyof CourseAnalytics>('students');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Calculate statistics
-  const totalCourses = courses.length;
-  const activeCourses = courses.filter(c => c.status === 'active').length;
-  const totalStudents = courses.reduce((sum, c) => sum + c.students, 0);
-  const totalRevenue = courses.reduce((sum, c) => sum + c.revenue, 0);
-  const averageRating = courses.reduce((sum, c) => sum + c.rating, 0) / courses.length;
-  const averageCompletionRate = courses.reduce((sum, c) => sum + c.completionRate, 0) / courses.length;
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        // Fetch course statistics
+        const statsResponse = await adminApiClient.getCourseStats();
+        if (statsResponse.success && statsResponse.data) {
+          setStats(statsResponse.data);
+        } else {
+          console.error('Failed to fetch course stats:', {
+            error: statsResponse.error,
+            status: statsResponse.status,
+            message: statsResponse.message,
+          });
+          setError(statsResponse.error || 'Không thể tải thống kê khóa học');
+        }
+
+        // Fetch courses with filters
+        const params = {
+          page: currentPage,
+          limit: itemsPerPage,
+          category: categoryFilter,
+          status: statusFilter,
+          level: levelFilter,
+          sort_by: sortField,
+          sort_direction: sortDirection,
+        };
+        const response = await adminApiClient.getAdminCourses(params);
+
+        if (response.success && response.data?.courses) {
+          setCourses(response.data.courses);
+          setFilteredCourses(response.data.courses);
+          setTotalPages(response.data.pagination?.totalPages || 1);
+        } else {
+          console.error('Failed to fetch courses:', {
+            error: response.error,
+            status: response.status,
+            message: response.message,
+            responseData: response.data,
+          });
+          setError(response.error || 'Không thể tải danh sách khóa học');
+        }
+      } catch (err) {
+        console.error('Unexpected error during fetchData:', {
+          error: err instanceof Error ? err.message : String(err),
+          stack: err instanceof Error ? err.stack : undefined,
+        });
+        setError('Lỗi không xác định khi tải dữ liệu');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [currentPage, categoryFilter, statusFilter, levelFilter, sortField, sortDirection]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('vi-VN', {
       style: 'currency',
       currency: 'VND',
-      minimumFractionDigits: 0
+      minimumFractionDigits: 0,
     }).format(amount);
   };
 
@@ -149,17 +198,17 @@ export function AdminCoursesPage() {
 
   const handleCategoryFilter = (category: string) => {
     setCategoryFilter(category);
-    filterCourses(searchTerm, category, statusFilter, levelFilter);
+    setCurrentPage(1);
   };
 
   const handleStatusFilter = (status: string) => {
     setStatusFilter(status);
-    filterCourses(searchTerm, categoryFilter, status, levelFilter);
+    setCurrentPage(1);
   };
 
   const handleLevelFilter = (level: string) => {
     setLevelFilter(level);
-    filterCourses(searchTerm, categoryFilter, statusFilter, level);
+    setCurrentPage(1);
   };
 
   const filterCourses = (search: string, category: string, status: string, level: string) => {
@@ -184,24 +233,6 @@ export function AdminCoursesPage() {
       filtered = filtered.filter(course => course.level === level);
     }
 
-    // Sort courses
-    filtered.sort((a, b) => {
-      const aValue = a[sortField];
-      const bValue = b[sortField];
-      
-      if (typeof aValue === 'string' && typeof bValue === 'string') {
-        return sortDirection === 'asc' 
-          ? aValue.localeCompare(bValue)
-          : bValue.localeCompare(aValue);
-      }
-      
-      if (typeof aValue === 'number' && typeof bValue === 'number') {
-        return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
-      }
-      
-      return 0;
-    });
-
     setFilteredCourses(filtered);
     setCurrentPage(1);
   };
@@ -210,7 +241,6 @@ export function AdminCoursesPage() {
     const newDirection = sortField === field && sortDirection === 'asc' ? 'desc' : 'asc';
     setSortField(field);
     setSortDirection(newDirection);
-    filterCourses(searchTerm, categoryFilter, statusFilter, levelFilter);
   };
 
   const exportToCSV = () => {
@@ -266,10 +296,31 @@ export function AdminCoursesPage() {
   };
 
   // Pagination
-  const totalPages = Math.ceil(filteredCourses.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const currentCourses = filteredCourses.slice(startIndex, endIndex);
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center">Đang tải dữ liệu...</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Card className="bg-red-50 border-red-200">
+          <CardContent className="p-6">
+            <p className="text-red-600">Lỗi: {error}</p>
+            <Button
+              className="mt-4"
+              onClick={() => window.location.reload()}
+            >
+              Thử lại
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50/30 to-white py-8">
@@ -289,7 +340,7 @@ export function AdminCoursesPage() {
               <div className="flex items-center space-x-2">
                 <BookOpen className="h-5 w-5 text-blue-600" />
                 <div>
-                  <div className="font-bold text-lg">{totalCourses}</div>
+                  <div className="font-bold text-lg">{stats.totalCourses}</div>
                   <div className="text-sm text-gray-600">Tổng khóa học</div>
                 </div>
               </div>
@@ -301,7 +352,7 @@ export function AdminCoursesPage() {
               <div className="flex items-center space-x-2">
                 <Award className="h-5 w-5 text-green-600" />
                 <div>
-                  <div className="font-bold text-lg">{activeCourses}</div>
+                  <div className="font-bold text-lg">{stats.activeCourses}</div>
                   <div className="text-sm text-gray-600">Đang hoạt động</div>
                 </div>
               </div>
@@ -313,7 +364,7 @@ export function AdminCoursesPage() {
               <div className="flex items-center space-x-2">
                 <Users className="h-5 w-5 text-purple-600" />
                 <div>
-                  <div className="font-bold text-lg">{formatNumber(totalStudents)}</div>
+                  <div className="font-bold text-lg">{formatNumber(stats.totalStudents)}</div>
                   <div className="text-sm text-gray-600">Tổng học viên</div>
                 </div>
               </div>
@@ -325,7 +376,7 @@ export function AdminCoursesPage() {
               <div className="flex items-center space-x-2">
                 <DollarSign className="h-5 w-5 text-yellow-600" />
                 <div>
-                  <div className="font-bold text-sm">{formatCurrency(totalRevenue)}</div>
+                  <div className="font-bold text-sm">{formatCurrency(stats.totalRevenue)}</div>
                   <div className="text-sm text-gray-600">Tổng doanh thu</div>
                 </div>
               </div>
@@ -337,7 +388,7 @@ export function AdminCoursesPage() {
               <div className="flex items-center space-x-2">
                 <Star className="h-5 w-5 text-orange-600" />
                 <div>
-                  <div className="font-bold text-lg">{averageRating.toFixed(1)}</div>
+                  <div className="font-bold text-lg">{stats.averageRating.toFixed(1)}</div>
                   <div className="text-sm text-gray-600">Đánh giá TB</div>
                 </div>
               </div>
@@ -349,7 +400,7 @@ export function AdminCoursesPage() {
               <div className="flex items-center space-x-2">
                 <TrendingUp className="h-5 w-5 text-indigo-600" />
                 <div>
-                  <div className="font-bold text-lg">{averageCompletionRate.toFixed(1)}%</div>
+                  <div className="font-bold text-lg">{stats.averageCompletionRate.toFixed(1)}%</div>
                   <div className="text-sm text-gray-600">Hoàn thành TB</div>
                 </div>
               </div>
@@ -530,7 +581,26 @@ export function AdminCoursesPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onClick={async () => {
+                              try {
+                                const response = await adminApiClient.getAdminCourseDetail(course.id);
+                                if (response.success && response.data) {
+                                  console.log('Course details:', response.data);
+                                  // Implement navigation or modal to show course details
+                                } else {
+                                  console.error('Failed to fetch course details:', {
+                                    error: response.error,
+                                    status: response.status,
+                                    message: response.message,
+                                  });
+                                }
+                              } catch (err) {
+                                console.error('Error fetching course details:', {
+                                  error: err instanceof Error ? err.message : String(err),
+                                  stack: err instanceof Error ? err.stack : undefined,
+                                });
+                              }
+                            }}>
                               <Eye className="h-4 w-4 mr-2" />
                               Xem chi tiết
                             </DropdownMenuItem>
