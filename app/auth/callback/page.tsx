@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2, ShieldAlert } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
@@ -21,7 +21,7 @@ const decodeUser = (encoded: string) => {
     }
 };
 
-const CallbackPage = () => {
+const CallbackContent = () => {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { initializeSession } = useAuthContext();
@@ -99,6 +99,18 @@ const CallbackPage = () => {
                 </CardContent>
             </Card>
         </div>
+    );
+};
+
+const CallbackPage = () => {
+    return (
+        <Suspense fallback={
+            <div className="flex min-h-[calc(100vh-120px)] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+            </div>
+        }>
+            <CallbackContent />
+        </Suspense>
     );
 };
 
