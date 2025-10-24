@@ -84,7 +84,7 @@ export function AdminCoursesPage() {
     const fetchData = async () => {
       setLoading(true);
       setError(null);
-
+  
       try {
         // Fetch course statistics
         const statsResponse = await adminApiClient.getCourseStats();
@@ -92,13 +92,14 @@ export function AdminCoursesPage() {
           setStats(statsResponse.data);
         } else {
           console.error('Failed to fetch course stats:', {
-            error: statsResponse.error,
+            error: statsResponse.error || 'No error message provided',
             status: statsResponse.status,
             message: statsResponse.message,
+            data: statsResponse.data,
           });
-          setError(statsResponse.error || 'Không thể tải thống kê khóa học');
+          setError(statsResponse.message || statsResponse.error || 'Không thể tải thống kê khóa học');
         }
-
+  
         // Fetch courses with filters
         const params = {
           page: currentPage,
@@ -110,19 +111,19 @@ export function AdminCoursesPage() {
           sort_direction: sortDirection,
         };
         const response = await adminApiClient.getAdminCourses(params);
-
-        if (response.success && response.data?.courses) {
-          setCourses(response.data.courses);
-          setFilteredCourses(response.data.courses);
-          setTotalPages(response.data.pagination?.totalPages || 1);
+  
+        if (response.success && response.data?.data) {
+          setCourses(response.data.data);
+          setFilteredCourses(response.data.data);
+          setTotalPages(response.data.totalPages || 1);
         } else {
           console.error('Failed to fetch courses:', {
-            error: response.error,
+            error: response.error || 'No error message provided',
             status: response.status,
             message: response.message,
-            responseData: response.data,
+            data: response.data,
           });
-          setError(response.error || 'Không thể tải danh sách khóa học');
+          setError(response.message || response.error || 'Không thể tải danh sách khóa học');
         }
       } catch (err) {
         console.error('Unexpected error during fetchData:', {
@@ -134,7 +135,7 @@ export function AdminCoursesPage() {
         setLoading(false);
       }
     };
-
+  
     fetchData();
   }, [currentPage, categoryFilter, statusFilter, levelFilter, sortField, sortDirection]);
 
@@ -523,10 +524,10 @@ export function AdminCoursesPage() {
                             <div className="font-medium text-gray-900 max-w-xs truncate">
                               {course.title}
                             </div>
-                            <div className="text-sm text-gray-500">{course.instructor}</div>
+                            <div className="text-sm text-gray-500">{course.category}</div>
                             <div className="text-sm text-gray-500 flex items-center">
                               <Clock className="h-3 w-3 mr-1" />
-                              {course.duration}
+                              {course.createdDate}
                             </div>
                           </div>
                         </div>

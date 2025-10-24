@@ -1,6 +1,6 @@
-"use client"
+"use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Progress } from './ui/progress';
@@ -21,62 +21,136 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { LineChart, Line, AreaChart, Area, PieChart as RechartsPieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { adminApiClient } from '../../lib/adminDashboardApi';
 
-// Mock analytics data
-const dashboardStats = {
-  totalUsers: 2847,
-  totalExperts: 156,
-  totalCourses: 24,
-  totalRevenue: 1847500000, // VND
-  monthlyRevenue: 285600000,
-  growthRate: 12.5,
-  activeUsers: 1923,
-  coursesCompleted: 1456,
-  averageRating: 4.7,
-  responseTime: '2.3h'
-};
+// Types từ AdminApiClient
+interface DashboardStats {
+  totalUsers: number;
+  totalExperts: number;
+  totalCourses: number;
+  totalRevenue: number;
+  monthlyRevenue: number;
+  growthRate: number;
+  activeUsers: number;
+  coursesCompleted: number;
+  averageRating: number;
+  responseTime: string;
+}
 
-const userGrowthData = [
-  { month: 'T1', users: 1240, experts: 45, revenue: 156000000 },
-  { month: 'T2', users: 1456, experts: 52, revenue: 189000000 },
-  { month: 'T3', users: 1678, experts: 67, revenue: 234000000 },
-  { month: 'T4', users: 1892, experts: 78, revenue: 267000000 },
-  { month: 'T5', users: 2134, experts: 89, revenue: 298000000 },
-  { month: 'T6', users: 2367, experts: 102, revenue: 324000000 },
-  { month: 'T7', users: 2543, experts: 124, revenue: 356000000 },
-  { month: 'T8', users: 2679, experts: 134, revenue: 387000000 },
-  { month: 'T9', users: 2756, experts: 145, revenue: 412000000 },
-  { month: 'T10', users: 2801, experts: 151, revenue: 438000000 },
-  { month: 'T11', users: 2834, experts: 154, revenue: 461000000 },
-  { month: 'T12', users: 2847, experts: 156, revenue: 485000000 }
-];
+interface UserGrowthData {
+  month: string;
+  users: number;
+  experts: number;
+  revenue: number;
+}
 
-const courseStatsData = [
-  { category: 'Stress Management', students: 856, revenue: 145000000 },
-  { category: 'Self Development', students: 723, revenue: 134000000 },
-  { category: 'Mindfulness', students: 634, revenue: 98000000 },
-  { category: 'Corporate Training', students: 234, revenue: 287000000 },
-  { category: 'Family Counseling', students: 445, revenue: 76000000 },
-  { category: 'Children Psychology', students: 312, revenue: 54000000 }
-];
+interface CourseStats {
+  category: string;
+  students: number;
+  revenue: number;
+}
 
-const userTypeDistribution = [
-  { name: 'Bệnh nhân', value: 2691, percentage: 94.5, color: '#3b82f6' },
-  { name: 'Chuyên gia', value: 156, percentage: 5.5, color: '#10b981' },
-  { name: 'Admin', value: 12, percentage: 0.4, color: '#8b5cf6' }
-];
+interface UserTypeDistribution {
+  name: string;
+  value: number;
+  percentage: number;
+  color: string;
+}
 
-const recentActivities = [
-  { id: 1, type: 'user_registration', user: 'Nguyễn Văn A', time: '5 phút trước', description: 'Đăng ký tài khoản mới' },
-  { id: 2, type: 'course_purchase', user: 'Trần Thị B', time: '12 phút trước', description: 'Mua khóa học "Quản lý Stress"' },
-  { id: 3, type: 'expert_booking', user: 'Lê Văn C', time: '18 phút trước', description: 'Đặt lịch tư vấn với Dr. Sarah Wilson' },
-  { id: 4, type: 'course_completion', user: 'Phạm Thị D', time: '25 phút trước', description: 'Hoàn thành khóa học "Mindfulness"' },
-  { id: 5, type: 'expert_registration', user: 'Dr. Nguyễn E', time: '32 phút trước', description: 'Đăng ký làm chuyên gia' }
-];
+interface RecentActivity {
+  id: string;
+  type: string;
+  user: string;
+  time: string;
+  description: string;
+}
 
 export function AdminDashboard() {
-  const [selectedTimeRange, setSelectedTimeRange] = useState('12months');
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats>({
+    totalUsers: 0,
+    totalExperts: 0,
+    totalCourses: 0,
+    totalRevenue: 0,
+    monthlyRevenue: 0,
+    growthRate: 0,
+    activeUsers: 0,
+    coursesCompleted: 0,
+    averageRating: 0,
+    responseTime: '0h',
+  });
+  const [userGrowthData, setUserGrowthData] = useState<UserGrowthData[]>([]);
+  const [courseStatsData, setCourseStatsData] = useState<CourseStats[]>([]);
+  const [userTypeDistribution, setUserTypeDistribution] = useState<UserTypeDistribution[]>([]);
+  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
+  const [selectedTimeRange, setSelectedTimeRange] = useState<string>('12months');
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchData = async () => {
+    setIsRefreshing(true);
+    setError(null);
+    try {
+      const statsRes = await adminApiClient.getDashboardStats(selectedTimeRange);
+      const growthRes = await adminApiClient.getUserGrowth(selectedTimeRange);
+      const coursesRes = await adminApiClient.getCourseStats(selectedTimeRange, 6);
+      const distributionRes = await adminApiClient.getUserTypeDistribution(selectedTimeRange);
+      const activitiesRes = await adminApiClient.getRecentActivities(5, 'all');
+
+      if (statsRes.success) {
+        setDashboardStats(statsRes.data || {
+          totalUsers: 0,
+          totalExperts: 0,
+          totalCourses: 0,
+          totalRevenue: 0,
+          monthlyRevenue: 0,
+          growthRate: 0,
+          activeUsers: 0,
+          coursesCompleted: 0,
+          averageRating: 0,
+          responseTime: '0h',
+        });
+      } else {
+        setError(statsRes.error || 'Failed to fetch dashboard stats');
+      }
+
+      if (growthRes.success) {
+        setUserGrowthData(growthRes.data || []);
+      } else {
+        setError(growthRes.error || 'Failed to fetch user growth data');
+      }
+
+      if (coursesRes.success) {
+        setCourseStatsData(coursesRes.data || []);
+      } else {
+        setError(coursesRes.error || 'Failed to fetch course stats');
+      }
+
+      if (distributionRes.success) {
+        setUserTypeDistribution(distributionRes.data || []);
+      } else {
+        setError(distributionRes.error || 'Failed to fetch user type distribution');
+      }
+
+      if (activitiesRes.success) {
+        setRecentActivities(activitiesRes.data || []);
+      } else {
+        setError(activitiesRes.error || 'Failed to fetch recent activities');
+      }
+    } catch (err) {
+      setError('Failed to fetch dashboard data');
+      console.error('Fetch error:', err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [selectedTimeRange]);
+
+  const handleRefresh = async () => {
+    await fetchData();
+  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('vi-VN', {
@@ -89,13 +163,6 @@ export function AdminDashboard() {
 
   const formatNumber = (num: number) => {
     return new Intl.NumberFormat('vi-VN').format(num);
-  };
-
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setIsRefreshing(false);
   };
 
   const getActivityIcon = (type: string) => {
@@ -147,6 +214,13 @@ export function AdminDashboard() {
           </div>
         </div>
 
+        {/* Error Message */}
+        {error && (
+          <div className="mb-4 p-4 bg-red-50 text-red-600 rounded-lg">
+            {error}
+          </div>
+        )}
+
         {/* Key Metrics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card className="bg-white/90 backdrop-blur-sm border-blue-100">
@@ -176,7 +250,7 @@ export function AdminDashboard() {
                   <p className="text-3xl font-bold text-gray-900">{formatNumber(dashboardStats.totalExperts)}</p>
                   <div className="flex items-center mt-2">
                     <Star className="h-4 w-4 text-yellow-500 mr-1" />
-                    <span className="text-sm text-gray-600">Đánh giá TB: {dashboardStats.averageRating}</span>
+                    <span className="text-sm text-gray-600">Đánh giá TB: {dashboardStats.averageRating.toFixed(1)}</span>
                   </div>
                 </div>
                 <div className="bg-green-100 p-3 rounded-full">

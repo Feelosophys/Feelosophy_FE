@@ -18,7 +18,7 @@ const REFRESH_TOKEN_STORAGE_KEY = 'refresh_token';
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 
 // API Response Type
-interface ApiResponse<T = unknown> {
+export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   message?: string;

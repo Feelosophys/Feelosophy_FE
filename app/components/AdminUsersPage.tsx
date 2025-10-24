@@ -229,7 +229,7 @@ export function AdminUsersPage() {
   };
 
   if (loading) {
-    return <div className="text-center py-8">Đang tải...</div>;
+    return <div className="text-center py-8">Loading...</div>;
   }
 
   if (error) {

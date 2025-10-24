@@ -23,12 +23,9 @@ interface CourseAnalytics {
 
 // Interface cho response của getAdminCourses
 interface AdminCoursesResponse {
-  courses: CourseAnalytics[];
-  pagination: {
-    currentPage: number;
-    totalPages: number;
-    totalCount: number;
-  };
+  data: CourseAnalytics[];
+  totalCourses: number;
+  totalPages: number;
 }
 
 // Interface cho response của getCourseStats (giả sử dựa trên mô tả, điều chỉnh nếu cần)
